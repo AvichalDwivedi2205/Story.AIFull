@@ -17,9 +17,11 @@
     "firebase": "^11.4.0",
     "framer-motion": "^12.4.10",
     "lucide-react": "^0.479.0",
+    "motion": "^12.4.10",
     "next": "15.2.1",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
+    "react-motion": "^0.5.2",
     "tailwind-merge": "^3.0.2",
     "tailwindcss-animate": "^1.0.7"
   },

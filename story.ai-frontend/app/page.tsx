@@ -48,13 +48,12 @@ export default function Home() {
         </div>
         <div className="flex-1 relative">
           <div className="relative z-10 bg-slate-800/50 backdrop-blur-sm rounded-xl overflow-hidden border border-slate-700">
-            <img 
+            <img // Will have to change to next/image later on
               src="/api/placeholder/600/400" 
               alt="Person evolving emotionally" 
               className="w-full h-auto rounded-xl"
             />
           </div>
-          {/* Floating icons similar to Ganttify design */}
           <div className="absolute -top-8 -left-8 p-4 bg-slate-800/80 backdrop-blur-sm rounded-xl border border-slate-700">
             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-blue-400"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
           </div>
@@ -148,7 +147,7 @@ export default function Home() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
           <div className="bg-slate-800/50 backdrop-blur-sm rounded-xl overflow-hidden border border-slate-700 p-4">
-            <img 
+            <img // Will have to change to next/image later on
               src="/api/placeholder/500/400" 
               alt="App interface preview" 
               className="w-full h-auto rounded-lg"
