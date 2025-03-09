@@ -1,6 +1,7 @@
 "use client"
 import React, { useState } from 'react';
 import { Calendar, Clock, BookOpen, Brain, Settings, Home, BarChart, Edit, CheckCircle, BotIcon } from 'lucide-react';
+import Navbar from '@/components/Navbar';
 
 const DashboardUI = () => {
   const [activeTab, setActiveTab] = useState('Dashboard');
@@ -49,29 +50,7 @@ const DashboardUI = () => {
           <p className="text-sm text-slate-400">Your mental wellness companion</p>
         </div>
         
-        <nav className="space-y-1">
-          {[
-            { name: 'Dashboard', icon: <Home className="h-5 w-5" /> },
-            { name: 'Story Journal', icon: <BookOpen className="h-5 w-5" /> },
-            { name: 'AI Insights', icon: <Brain className="h-5 w-5" /> },
-           // { name: 'Routine Builder', icon: <Calendar className="h-5 w-5" /> },
-            { name: 'Settings', icon: <Settings className="h-5 w-5" /> },
-            { name: 'Therapy Chatbot', icon: <BotIcon className="h-5 w-5" /> }
-          ].map((item) => (
-            <button
-              key={item.name}
-              onClick={() => setActiveTab(item.name)}
-              className={`flex items-center w-full p-3 rounded-md ${
-                activeTab === item.name 
-                  ? 'bg-blue-600/20 text-blue-400 border border-blue-500/30' 
-                  : 'hover:bg-slate-700/50 text-slate-300'
-              }`}
-            >
-              <span className="mr-3">{item.icon}</span>
-              {item.name}
-            </button>
-          ))}
-        </nav>
+        <Navbar activeTab={activeTab} setActiveTab={setActiveTab} />
         
         <div className="mt-8 p-4 bg-slate-800/70 rounded-lg border border-slate-700">
           <h3 className="font-medium text-white">Current Streak</h3>
