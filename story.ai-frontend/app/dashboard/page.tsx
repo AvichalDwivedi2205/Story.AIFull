@@ -54,7 +54,7 @@ const DashboardUI = () => {
             { name: 'Dashboard', icon: <Home className="h-5 w-5" /> },
             { name: 'Story Journal', icon: <BookOpen className="h-5 w-5" /> },
             { name: 'AI Insights', icon: <Brain className="h-5 w-5" /> },
-            { name: 'Routine Builder', icon: <Calendar className="h-5 w-5" /> },
+           // { name: 'Routine Builder', icon: <Calendar className="h-5 w-5" /> },
             { name: 'Settings', icon: <Settings className="h-5 w-5" /> },
             { name: 'Therapy Chatbot', icon: <BotIcon className="h-5 w-5" /> }
           ].map((item) => (
