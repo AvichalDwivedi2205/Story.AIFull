@@ -44,26 +44,7 @@ const DashboardUI = () => {
 
   return (
     <div className="flex min-h-screen bg-slate-900 text-slate-300">
-      <div className="w-64 bg-slate-800/50 backdrop-blur-sm border-r border-slate-700 p-4">
-        <div className="mb-8">
-          <h1 className="text-2xl font-bold text-white">Story.ai</h1>
-          <p className="text-sm text-slate-400">Your mental wellness companion</p>
-        </div>
-        
-        <Navbar activeTab={activeTab} setActiveTab={setActiveTab} />
-        
-        <div className="mt-8 p-4 bg-slate-800/70 rounded-lg border border-slate-700">
-          <h3 className="font-medium text-white">Current Streak</h3>
-          <div className="flex items-center mt-2">
-            <span className="text-2xl font-bold text-blue-400">12</span>
-            <span className="ml-2 text-slate-400">days</span>
-          </div>
-          <div className="mt-2 w-full bg-slate-700 rounded-full h-2">
-            <div className="bg-blue-600 h-2 rounded-full" style={{ width: '70%' }}></div>
-          </div>
-          <p className="mt-2 text-xs text-slate-400">5 more days to reach your best</p>
-        </div>
-      </div>
+     <Navbar activeTab={activeTab} setActiveTab={setActiveTab} />
       
       <div className="flex-1 p-6 overflow-auto">
         <header className="flex justify-between items-center mb-8">

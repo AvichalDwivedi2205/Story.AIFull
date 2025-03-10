@@ -110,9 +110,7 @@ export default function StoryJournal() {
   return (
     <div className="flex h-screen bg-slate-900 text-slate-300">
       {/* Navbar */}
-      <div className="w-64 border-r border-slate-700 p-4">
-        <Navbar activeTab={activeTab} setActiveTab={setActiveTab} />
-      </div>
+      <Navbar activeTab={activeTab} setActiveTab={setActiveTab} />
       
       {/* Main Content */}
       <div className="flex-1 overflow-auto">
