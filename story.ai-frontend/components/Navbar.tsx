@@ -1,7 +1,7 @@
 // components/Navbar.tsx
 "use client"
 import React from 'react';
-import { Calendar, Home, BookOpen, Brain, Settings, BotIcon } from 'lucide-react';
+import { Calendar, Home, BookOpen, Brain, Settings, BotIcon, ClipboardList } from 'lucide-react';
 import Link from 'next/link';
 
 interface NavbarProps {
@@ -25,6 +25,7 @@ export default function Navbar({ activeTab, setActiveTab }: NavbarProps) {
           { name: 'Story Journal', icon: <BookOpen className="h-5 w-5" /> },
           { name: 'AI Insights', icon: <Brain className="h-5 w-5" /> },
           { name: 'Therapy Chatbot', icon: <BotIcon className="h-5 w-5" /> },
+          { name: 'Self-Assessment', icon: <ClipboardList className="h-5 w-5" /> },
           { name: 'Settings', icon: <Settings className="h-5 w-5" /> },
         ].map((item) => (
           <Link
