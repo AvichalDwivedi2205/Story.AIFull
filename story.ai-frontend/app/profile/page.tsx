@@ -316,11 +316,11 @@ export default function Profile() {
                         className="w-full max-w-10 mx-1 rounded-t-sm transition-all duration-300" 
                         style={{ 
                           height: `${data.value * 20}%`,
-                          backgroundColor: data.value >= 4 ? '#3b82f6' : // blue-500
-                                          data.value === 3 ? '#60a5fa' : // blue-400
-                                          data.value === 2 ? '#93c5fd' : // blue-300
-                                          data.value === 1 ? '#bfdbfe' : // blue-200
-                                                          '#dbeafe'  // blue-100
+                          backgroundColor: data.value >= 4 ? '#3b82f6' : 
+                                          data.value === 3 ? '#60a5fa' : 
+                                          data.value === 2 ? '#93c5fd' : 
+                                          data.value === 1 ? '#bfdbfe' : 
+                                                          '#dbeafe'  
                         }}
                       ></div>
                       <div className="text-xs text-slate-400 mt-2 transform -rotate-45 origin-top-left translate-y-6">
@@ -338,11 +338,11 @@ export default function Profile() {
                       <div 
                         className="w-3 h-3 rounded-full mr-1"
                         style={{
-                          backgroundColor: index === 4 ? '#3b82f6' : // blue-500
-                                          index === 3 ? '#60a5fa' : // blue-400
-                                          index === 2 ? '#93c5fd' : // blue-300
-                                          index === 1 ? '#bfdbfe' : // blue-200
-                                                        '#dbeafe'  // blue-100
+                          backgroundColor: index === 4 ? '#3b82f6' : 
+                                          index === 3 ? '#60a5fa' : 
+                                          index === 2 ? '#93c5fd' : 
+                                          index === 1 ? '#bfdbfe' : 
+                                                        '#dbeafe'
                         }}
                       ></div>
                       <span className="text-xs text-slate-400">{mood}</span>
