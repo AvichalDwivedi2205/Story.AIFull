@@ -26,7 +26,7 @@ export default function StoryJournal() {
     { day: 'Sat', value: 65 },
     { day: 'Sun', value: 80 },
   ]);
-  const [username, setUsername] = useState('Sarah Johnson');
+  const [username, setUsername] = useState('Avichal Dwivedi');
   const [aiPrompts, setAiPrompts] = useState([
     "Describe a time you felt deeply connected to yourself.",
     "Write a letter to your future self.",
