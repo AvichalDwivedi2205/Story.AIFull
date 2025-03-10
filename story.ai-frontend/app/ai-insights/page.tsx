@@ -44,12 +44,12 @@ export default function AIInsights() {
       summary: "Key themes extracted from your journal entries.",
       details: "Analysis of your journal entries highlights recurring themes such as work stress and social connections. Recognizing these patterns can help you better manage triggers and reinforce positive habits."
     },
-    {
-      id: "sleep-patterns",
-      title: "Sleep & Insomnia Patterns",
-      summary: "Inconsistent sleep references noted.",
-      details: "The Sleep Pattern Detection model detected 8 instances of insomnia-related references. Consider integrating a relaxing nighttime routine to improve sleep quality."
-    }
+    // {
+    //   id: "sleep-patterns",
+    //   title: "Sleep & Insomnia Patterns",
+    //   summary: "Inconsistent sleep references noted.",
+    //   details: "The Sleep Pattern Detection model detected 8 instances of insomnia-related references. Consider integrating a relaxing nighttime routine to improve sleep quality."
+    // }
   ];
 
   // Sample recommendations incorporating multi-model analysis
