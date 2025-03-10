@@ -40,7 +40,7 @@ export default function Home() {
             <Button size="lg" className="bg-blue-600 hover:bg-blue-700">
               Start Your Journey Today
             </Button>
-            <Button size="lg" variant="outline" className="text-white border-slate-700">
+            <Button size="lg" variant="outline" className="text-gray-900 border-slate-700">
               How it Works
             </Button>
           </div>
@@ -82,7 +82,7 @@ export default function Home() {
             <CardContent className="pt-6">
               <div className="flex items-center gap-4 mb-4">
                 <span className="p-3 rounded-lg bg-blue-900/30 text-blue-400">🧠</span>
-                <h3 className="font-semibold text-xl">AI-Powered Therapy</h3>
+                <h3 className="font-semibold text-xl text-gray-200">AI-Powered Therapy</h3>
               </div>
               <p className="text-slate-300">Advanced AI that adapts to your needs and provides personalized therapeutic insights.</p>
             </CardContent>
@@ -92,7 +92,7 @@ export default function Home() {
             <CardContent className="pt-6">
               <div className="flex items-center gap-4 mb-4">
                 <span className="p-3 rounded-lg bg-green-900/30 text-green-400">📖</span>
-                <h3 className="font-semibold text-xl">Guided Journaling</h3>
+                <h3 className="font-semibold text-xl text-gray-200">Guided Journaling</h3>
               </div>
               <p className="text-slate-300">Structured prompts that help you explore your thoughts and emotions effectively.</p>
             </CardContent>
@@ -102,7 +102,7 @@ export default function Home() {
             <CardContent className="pt-6">
               <div className="flex items-center gap-4 mb-4">
                 <span className="p-3 rounded-lg bg-purple-900/30 text-purple-400">🌱</span>
-                <h3 className="font-semibold text-xl">Mindfulness & Stress Relief</h3>
+                <h3 className="font-semibold text-xl text-gray-200">Mindfulness & Stress Relief</h3>
               </div>
               <p className="text-slate-300">Techniques and exercises to center yourself and reduce anxiety in the moment.</p>
             </CardContent>
@@ -112,7 +112,7 @@ export default function Home() {
             <CardContent className="pt-6">
               <div className="flex items-center gap-4 mb-4">
                 <span className="p-3 rounded-lg bg-amber-900/30 text-amber-400">📊</span>
-                <h3 className="font-semibold text-xl">Progress Tracking</h3>
+                <h3 className="font-semibold text-xl text-gray-200">Progress Tracking</h3>
               </div>
               <p className="text-slate-300">Visualize your growth and see how far you've come with detailed analytics.</p>
             </CardContent>
@@ -122,7 +122,7 @@ export default function Home() {
             <CardContent className="pt-6">
               <div className="flex items-center gap-4 mb-4">
                 <span className="p-3 rounded-lg bg-pink-900/30 text-pink-400">💡</span>
-                <h3 className="font-semibold text-xl">Personalized Insights</h3>
+                <h3 className="font-semibold text-xl text-gray-200">Personalized Insights</h3>
               </div>
               <p className="text-slate-300">Learn about your emotional patterns and receive tailored recommendations.</p>
             </CardContent>
@@ -132,7 +132,7 @@ export default function Home() {
             <CardContent className="pt-6">
               <div className="flex items-center gap-4 mb-4">
                 <span className="p-3 rounded-lg bg-indigo-900/30 text-indigo-400">⏱️</span>
-                <h3 className="font-semibold text-xl">Accessible Anytime</h3>
+                <h3 className="font-semibold text-xl text-gray-200">Accessible Anytime</h3>
               </div>
               <p className="text-slate-300">Get support whenever you need it, without scheduling appointments or waiting lists.</p>
             </CardContent>
@@ -213,7 +213,7 @@ export default function Home() {
                 <div className="mx-auto w-12 h-12 flex items-center justify-center rounded-full bg-blue-900/30 text-blue-400 mb-4">
                   <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
                 </div>
-                <h3 className="font-semibold text-xl mb-2">Personalized Learning</h3>
+                <h3 className="font-semibold text-xl mb-2 text-gray-200">Personalized Learning</h3>
                 <p className="text-slate-300">Every session builds on the last, ensuring a unique journey for each user.</p>
               </div>
             </CardContent>
@@ -225,7 +225,7 @@ export default function Home() {
                 <div className="mx-auto w-12 h-12 flex items-center justify-center rounded-full bg-green-900/30 text-green-400 mb-4">
                   <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></svg>
                 </div>
-                <h3 className="font-semibold text-xl mb-2">Smart AI Insights</h3>
+                <h3 className="font-semibold text-xl mb-2 text-gray-200">Smart AI Insights</h3>
                 <p className="text-slate-300">Understand your emotional patterns and get personalized recommendations.</p>
               </div>
             </CardContent>
@@ -237,7 +237,7 @@ export default function Home() {
                 <div className="mx-auto w-12 h-12 flex items-center justify-center rounded-full bg-purple-900/30 text-purple-400 mb-4">
                   <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 10h-4V4H6v16h12V10z"></path><path d="M14 4v6h4"></path></svg>
                 </div>
-                <h3 className="font-semibold text-xl mb-2">Seamless Integration</h3>
+                <h3 className="font-semibold text-xl mb-2 text-gray-200">Seamless Integration</h3>
                 <p className="text-slate-300">Access your progress, notes, and exercises from anywhere.</p>
               </div>
             </CardContent>
@@ -294,7 +294,8 @@ export default function Home() {
         <div className="max-w-4xl mx-auto text-center bg-gradient-to-r from-blue-900/50 to-purple-900/50 backdrop-blur-sm rounded-xl p-12 border border-blue-800/50">
           <h2 className="text-3xl font-bold mb-4">Begin Your Wellness Journey Today</h2>
           <p className="text-lg text-slate-300 mb-8 max-w-2xl mx-auto">
-            Join thousands of users who are transforming their mental health with Story.ai's personalized approach to therapy and mindfulness.
+            Join us in transforming your mental health with Story.ai's personalized approach to therapy and mindfulness.
+            Rewrite your narrative, build lasting habits, and take control of your mental health journey.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link href="/get-started">
@@ -303,7 +304,7 @@ export default function Home() {
               </Button>
             </Link>
             <Link href="/sign-in">
-              <Button size="lg" variant="outline" className="text-white border-slate-600 px-8">
+              <Button size="lg" variant="outline" className="text-gray-900 border-slate-600 px-8">
                 Sign In
               </Button>
             </Link>
