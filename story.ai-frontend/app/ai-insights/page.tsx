@@ -11,10 +11,9 @@ export default function AIInsights() {
   // Expanded sample data for key metrics from multiple model analyses
   const keyMetrics = [
     { name: "Anxiety Level", value: "75% of entries indicate high anxiety", increasing: true },
-    { name: "Mood Variability", value: "42% change", increasing: false },
+    { name: "Top Moods", value: "Joy, anger ", increasing: false },
     { name: "Positive Sentiment", value: "28% of content", increasing: true },
     { name: "Cognitive Distortions", value: "Reduced by 35% compared to last month", increasing: false },
-    { name: "Sleep Pattern Alerts", value: "8 insomnia references", increasing: false },
     { name: "Therapy Chatbot Engagement", value: "Increased by 20%", increasing: true },
   ];
 
