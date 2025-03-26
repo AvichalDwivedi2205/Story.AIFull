@@ -12,9 +12,11 @@ import {
 } from "firebase/auth";
 import { doc, setDoc, getDoc, collection, query, where, getDocs } from "firebase/firestore";
 import { auth, db } from "@/config/firebase";
+import { useAuth } from "@/context/AuthContext";
 import { useRouter } from "next/navigation";
 
 export default function AuthForm({ type }: { type: "signup" | "signin" }) {
+  const { isAuthenticated } = useAuth();
   const [mounted, setMounted] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -34,6 +36,14 @@ export default function AuthForm({ type }: { type: "signup" | "signin" }) {
     setFormData((prev) => ({ ...prev, [id]: value }));
     setError(null);
   };
+
+  useEffect(() => {
+    // If already authenticated, redirect to dashboard
+    if (isAuthenticated) {
+      router.push("/dashboard");
+    }
+    setMounted(true);
+  }, [isAuthenticated]);
 
   useEffect(() => {
     setMounted(true);
