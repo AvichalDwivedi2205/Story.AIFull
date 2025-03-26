@@ -54,6 +54,7 @@ export default function AuthForm({ type }: { type: "signup" | "signin" }) {
   const checkUsernameUnique = async (username: string) => {
     const usernameRef = doc(db, "usernames", username.toLowerCase());
     const usernameSnap = await getDoc(usernameRef);
+    console.log("Username snapshot:", usernameSnap.data());
     return !usernameSnap.exists();
   };
 
@@ -106,7 +107,7 @@ export default function AuthForm({ type }: { type: "signup" | "signin" }) {
         ]);
 
         setSuccess("Account created successfully! Redirecting...");
-        setTimeout(() => router.push("/dashboard"), 2000);
+        setTimeout(() => router.push("/self-assessment"), 2000);
       } else {
         // Handle sign in with email or username
         let email = formData.email;
