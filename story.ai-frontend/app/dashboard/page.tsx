@@ -2,6 +2,40 @@
 import React, { useState } from 'react';
 import { Calendar, Clock, BookOpen, Brain, Settings, Home, BarChart, Edit, CheckCircle, BotIcon } from 'lucide-react';
 import Navbar from '@/components/Navbar';
+import { useAuth } from '@/context/AuthContext';
+
+
+const AuthStateChecker = () => {
+  const { currentUser, userData, loading, isAuthenticated } = useAuth();
+  
+  if (loading) {
+    return (
+      <div className="p-4 bg-yellow-500/20 border border-yellow-500 rounded-md text-yellow-200 mb-4">
+        <p className="font-medium">Authentication Status: Loading...</p>
+      </div>
+    );
+  }
+  
+  if (!isAuthenticated) {
+    return (
+      <div className="p-4 bg-red-500/20 border border-red-500 rounded-md text-red-200 mb-4">
+        <p className="font-medium">Authentication Status: Not Authenticated</p>
+        <p className="text-sm mt-1">You should be redirected to login soon.</p>
+      </div>
+    );
+  }
+  
+  return (
+    <div className="p-4 bg-green-500/20 border border-green-500 rounded-md text-green-200 mb-4">
+      <p className="font-medium">Authentication Status: Authenticated</p>
+      <div className="mt-2 text-sm">
+        <p>Email: {currentUser?.email}</p>
+        <p>Name: {userData?.firstName} {userData?.lastName}</p>
+        <p>Username: {userData?.username}</p>
+      </div>
+    </div>
+  );
+};
 
 const DashboardUI = () => {
   const [activeTab, setActiveTab] = useState('Dashboard');
