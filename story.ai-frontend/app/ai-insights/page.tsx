@@ -10,6 +10,7 @@ export default function AIInsights() {
 
   // Expanded sample data for key metrics from multiple model analyses
   const keyMetrics = [
+    { name: "Stress Level", value: "PSS Scores", increasing: true },
     { name: "Anxiety Level", value: "75% of entries indicate high anxiety", increasing: true },
     { name: "Top Moods", value: "Joy, anger ", increasing: false },
     { name: "Positive Sentiment", value: "28% of content", increasing: true },
@@ -43,6 +44,7 @@ export default function AIInsights() {
       summary: "Key themes extracted from your journal entries.",
       details: "Analysis of your journal entries highlights recurring themes such as work stress and social connections. Recognizing these patterns can help you better manage triggers and reinforce positive habits."
     },
+    
     // {
     //   id: "sleep-patterns",
     //   title: "Sleep & Insomnia Patterns",
