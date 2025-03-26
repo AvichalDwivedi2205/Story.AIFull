@@ -34,9 +34,9 @@ interface AssessmentTest {
 const testData: AssessmentTest[] = [
   {
     id: 'pss',
-    name: 'Perceived Stress Scale (PSS)',
+    name: 'Stress Level Test',
     description: 'Measures your overall stress levels.',
-    estimatedTime: '5 min',
+    estimatedTime: '2 min',
     status: 'Not Started',
     questions: [
       {
@@ -66,9 +66,9 @@ const testData: AssessmentTest[] = [
   },
   {
     id: 'mcmi',
-    name: 'Millon Clinical Multiaxial Inventory (MCMI)',
+    name: 'Personality Type Test',
     description: 'Evaluates personality patterns and emotional functioning.',
-    estimatedTime: '15 min',
+    estimatedTime: '3 min',
     status: 'Not Started',
     questions: [
       // Questions would be defined here
@@ -76,7 +76,7 @@ const testData: AssessmentTest[] = [
   },
   {
     id: 'gad7',
-    name: 'Generalized Anxiety Disorder (GAD-7)',
+    name: 'Anxiety Assessment',
     description: 'Assesses anxiety symptoms and their severity.',
     estimatedTime: '3 min',
     status: 'Completed',
