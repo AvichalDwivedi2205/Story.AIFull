@@ -15,7 +15,6 @@ export default function AIInsights() {
     { name: "Top Moods", value: "Joy, anger ", increasing: false },
     { name: "Positive Sentiment", value: "28% of content", increasing: true },
     { name: "Cognitive Distortions", value: "Reduced by 35% compared to last month", increasing: false },
-    { name: "Therapy Chatbot Engagement", value: "Increased by 20%", increasing: true },
   ];
 
   // Expanded sample insights from different AI models
