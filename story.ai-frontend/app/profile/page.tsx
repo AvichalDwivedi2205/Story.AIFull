@@ -40,7 +40,7 @@ interface Achievement {
   title: string;
   description: string;
   date: string;
-  icon: JSX.Element;
+  icon: React.ReactNode;
   completed: boolean;
 }
 

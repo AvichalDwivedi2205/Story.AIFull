@@ -78,6 +78,7 @@ const DashboardUI = () => {
 
   return (
     <div className="flex min-h-screen bg-slate-900 text-slate-300">
+      <AuthStateChecker />
      <Navbar activeTab={activeTab} setActiveTab={setActiveTab} />
       
       <div className="flex-1 p-6 overflow-auto">
