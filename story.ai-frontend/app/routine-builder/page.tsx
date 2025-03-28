@@ -1,998 +1,863 @@
-"use client";
-
+"use client"
 import React, { useState, useEffect, useRef } from 'react';
-import { 
-  Calendar, BookOpen, Plus, Search, Brain, Edit, Trash2,
-  MoveHorizontal, CheckCircle, Calendar1, Settings, X, Info, AlertTriangle, Trash
-} from 'lucide-react';
+import { ChevronDown, ChevronUp, Plus, Calendar, Clock, Trash2, Edit, Check, X, Filter } from 'lucide-react';
 import Navbar from '@/components/Navbar';
-import { db } from '@/config/firebase';
-import { collection, query, where, onSnapshot, addDoc, serverTimestamp, doc, deleteDoc, updateDoc, getDocs } from 'firebase/firestore';
-import { DndProvider, useDrag, useDrop } from 'react-dnd';
-import { HTML5Backend } from 'react-dnd-html5-backend';
 import { useAuth } from '@/context/AuthContext';
+import { collection, addDoc, updateDoc, deleteDoc, getDocs, doc, query, where, serverTimestamp } from 'firebase/firestore';
+import { db } from '@/config/firebase';
+import { useRouter } from 'next/navigation';
 
-interface RoutineActivity {
+// Define types for our timetable activities
+interface Activity {
   id: string;
-  userId: string;
   title: string;
-  category: 'journal' | 'exercise' | 'challenge' | 'therapy' | 'custom';
+  description: string;
+  category: 'Journal' | 'Exercise' | 'Challenge' | 'Therapy' | 'Custom';
+  day: 'Monday' | 'Tuesday' | 'Wednesday' | 'Thursday' | 'Friday' | 'Saturday' | 'Sunday';
   startTime: string;
   endTime: string;
-  dayOfWeek: number;
-  color: string;
-  isRecurring: boolean;
-  notes?: string;
+  completed: boolean;
+  userId: string;
   createdAt: any;
-  updatedAt: any;
-  duration?: number; // Add duration field
 }
 
-interface RecommendedActivity {
-  id: string;
-  title: string;
-  category: 'journal' | 'exercise' | 'challenge' | 'therapy' | 'custom';
-  description: string;
-  defaultDuration: number;
-}
 
-interface ActivityCardProps {
-  activity: RecommendedActivity;
-}
-
-const ActivityCard: React.FC<ActivityCardProps> = ({ activity }) => {
-  const ref = useRef<HTMLDivElement>(null);
-  const [{ isDragging }, drag] = useDrag(() => ({
-    type: 'activity',
-    item: { activity },
-    collect: (monitor) => ({
-      isDragging: !!monitor.isDragging(),
-    }),
-  }));
-
-  // Connect drag to ref
-  drag(ref);
-
-  const getBgColor = (category: string): string => {
-    switch (category) {
-      case 'journal': return 'bg-indigo-900/20 border-indigo-800/30';
-      case 'exercise': return 'bg-emerald-900/20 border-emerald-800/30';
-      case 'challenge': return 'bg-amber-900/20 border-amber-800/30';
-      case 'therapy': return 'bg-blue-900/20 border-blue-800/30';
-      default: return 'bg-slate-800/70 border-slate-700';
-    }
-  };
-
-  const getIconColor = (category: string): string => {
-    switch (category) {
-      case 'journal': return 'text-indigo-400';
-      case 'exercise': return 'text-emerald-400';
-      case 'challenge': return 'text-amber-400';
-      case 'therapy': return 'text-blue-400';
-      default: return 'text-slate-400';
-    }
-  };
-
-  const getIcon = (category: string): React.ReactNode => {
-    switch (category) {
-      case 'journal': return <BookOpen className={`h-5 w-5 ${getIconColor(category)}`} />;
-      case 'exercise': return <Settings className={`h-5 w-5 ${getIconColor(category)}`} />;
-      case 'challenge': return <Brain className={`h-5 w-5 ${getIconColor(category)}`} />;
-      case 'therapy': return <Calendar1 className={`h-5 w-5 ${getIconColor(category)}`} />;
-      default: return <Calendar className={`h-5 w-5 ${getIconColor(category)}`} />;
-    }
-  };
-
-  const getIconBgClass = (category: string): string => {
-    switch (category) {
-      case 'journal': return 'bg-indigo-600/20';
-      case 'exercise': return 'bg-emerald-600/20';
-      case 'challenge': return 'bg-amber-600/20';
-      case 'therapy': return 'bg-blue-600/20';
-      default: return 'bg-slate-600/20';
-    }
-  };
-
-  return (
-    <div 
-      ref={ref}
-      className={`${getBgColor(activity.category)} border rounded-lg p-4 cursor-grab ${
-        isDragging ? 'opacity-50' : 'opacity-100'
-      }`}
-    >
-      <div className="flex items-start">
-        <div className={`p-2 rounded-md mr-3 ${getIconBgClass(activity.category)}`}>
-          {getIcon(activity.category)}
-        </div>
-        <div>
-          <h4 className="font-medium text-white">{activity.title}</h4>
-          <p className="text-sm text-slate-400">{activity.description}</p>
-        </div>
-      </div>
-    </div>
-  );
+// Category color mapping
+const categoryColors: Record<string, string> = {
+  Journal: 'bg-indigo-900/20 border-indigo-700/30',
+  Exercise: 'bg-emerald-900/20 border-emerald-700/30',
+  Challenge: 'bg-amber-900/20 border-amber-700/30',
+  Therapy: 'bg-blue-900/20 border-blue-700/30',
+  Custom: 'bg-purple-900/20 border-purple-700/30',
 };
 
-interface TimeSlotProps {
-  day: number;
-  hour: number;
-  activities: RoutineActivity[];
-  onDrop: (day: number, hour: number, activity: RecommendedActivity) => void;
-  onSlotClick: (day: number, hour: number, activities: RoutineActivity[]) => void;
-}
-
-const TimeSlot: React.FC<TimeSlotProps> = ({ day, hour, activities, onDrop, onSlotClick }) => {
-  const ref = useRef<HTMLDivElement>(null);
-  const [{ isOver }, drop] = useDrop(() => ({
-    accept: 'activity',
-    drop: (item: { activity: RecommendedActivity }) => onDrop(day, hour, item.activity),
-    collect: (monitor) => ({
-      isOver: !!monitor.isOver(),
-    }),
-  }));
-
-  // Connect drop to ref
-  drop(ref);
-
-  // Filter all activities that overlap with this hour
-  const slotActivities = activities.filter(a => {
-    const startHour = new Date(a.startTime).getHours();
-    const endHour = new Date(a.endTime).getHours();
-    // Handle activities within the same hour
-    if (startHour === endHour) {
-      return a.dayOfWeek === day && startHour === hour;
-    }
-    // Handle activities that span multiple hours
-    return a.dayOfWeek === day && startHour <= hour && endHour > hour;
-  });
-
-  const hasActivities = slotActivities.length > 0;
-  
-  // Use the first activity's color if there are activities, or default
-  const bgColor = hasActivities ? slotActivities[0].color : 'bg-slate-800/30';
-
-  return (
-    <div 
-      ref={ref}
-      className={`border border-slate-700 h-16 relative ${
-        isOver ? 'bg-blue-800/30' : bgColor
-      } cursor-pointer hover:opacity-80`}
-      onClick={() => onSlotClick(day, hour, slotActivities)}
-    >
-      {hasActivities && (
-        <div className="p-2 h-full overflow-hidden">
-          <div className="text-xs font-medium">
-            {slotActivities[0].title}
-            {slotActivities.length > 1 && (
-              <span className="bg-blue-500 text-white text-xs px-1 rounded-full ml-1">
-                +{slotActivities.length - 1}
-              </span>
-            )}
-          </div>
-        </div>
-      )}
-    </div>
-  );
+const categoryTextColors: Record<string, string> = {
+  Journal: 'bg-indigo-700/40 text-indigo-300',
+  Exercise: 'bg-emerald-700/40 text-emerald-300',
+  Challenge: 'bg-amber-700/40 text-amber-300',
+  Therapy: 'bg-blue-700/40 text-blue-300',
+  Custom: 'bg-purple-700/40 text-purple-300',
 };
 
-export default function RoutineBuilderPage() {
+// Days of the week
+const daysOfWeek = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+
+// Time slots for the timetable (all 24 hours with 3-hour intervals)
+const timeSlots = Array.from({ length: 9 }, (_, i) => {
+  const hour = i * 3; // 0, 3, 6, 9, 12, 15, 18, 21
+  return `${hour < 10 ? '0' + hour : hour}:00`;
+});
+
+export default function WeeklyTimetable() {
   const [activeTab, setActiveTab] = useState('Routine Builder');
-  const [routineActivities, setRoutineActivities] = useState<RoutineActivity[]>([]);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [successMessage, setSuccessMessage] = useState('');
-  const [newActivity, setNewActivity] = useState({
-    title: '',
-    category: 'custom' as 'journal' | 'exercise' | 'challenge' | 'therapy' | 'custom',
-    startTime: '',
-    duration: 30, // in minutes, default to 30
-    dayOfWeek: 0,
-    color: 'bg-blue-900/20',
-    isRecurring: false,
-    notes: ''
-  });
-  const { currentUser, isAuthenticated } = useAuth();
-  const [hasActivities, setHasActivities] = useState(false);
-  const [selectedSlot, setSelectedSlot] = useState<{day: number, hour: number, activities: RoutineActivity[]} | null>(null);
-  const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
-  const [editingActivity, setEditingActivity] = useState<RoutineActivity | null>(null);
+  const [activities, setActivities] = useState<Activity[]>([]);
+  const [filteredActivities, setFilteredActivities] = useState<Activity[]>([]);
+  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [currentActivity, setCurrentActivity] = useState<Partial<Activity> | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [filterCategory, setFilterCategory] = useState<string>('All');
+  const [filterDay, setFilterDay] = useState<string>('All');
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [selectedTimeSlot, setSelectedTimeSlot] = useState<{day: string, startTime: string} | null>(null);
+  
+  const formRef = useRef<HTMLDivElement>(null);
+  const { currentUser, isAuthenticated, loading } = useAuth();
+  const router = useRouter();
 
-  const recommendedActivities: RecommendedActivity[] = [
-    {
-      id: 'rec-1',
-      title: 'Morning Journal',
-      category: 'journal',
-      description: '15-minute reflection to start your day',
-      defaultDuration: 15
-    },
-    {
-      id: 'rec-2',
-      title: 'Breathing Exercise',
-      category: 'exercise',
-      description: '5-minute deep breathing technique',
-      defaultDuration: 5
-    },
-    {
-      id: 'rec-3',
-      title: 'Cognitive Challenge',
-      category: 'challenge',
-      description: '10-minute mental exercise',
-      defaultDuration: 10
-    },
-    {
-      id: 'rec-4',
-      title: 'Weekly Therapy Chat',
-      category: 'therapy',
-      description: '30-minute session with AI therapist',
-      defaultDuration: 30
-    },
-    {
-      id: 'rec-5',
-      title: 'Gratitude Practice',
-      category: 'journal',
-      description: '5-minute gratitude reflection',
-      defaultDuration: 5
-    },
-    {
-      id: 'rec-6',
-      title: 'Mindfulness Meditation',
-      category: 'exercise',
-      description: '10-minute guided meditation',
-      defaultDuration: 10
-    }
-  ];
-
-  const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-  const hours = Array.from({ length: 16 }, (_, i) => i + 6);
-
+  // Redirect if not authenticated
   useEffect(() => {
-    if (!currentUser) return;
-    
-    // Use user's subcollection for routines
-    const userRoutinesRef = collection(db, 'users', currentUser.uid, 'routines');
-    const unsubscribeSnapshot = onSnapshot(userRoutinesRef, (snapshot) => {
-      const routineData = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as RoutineActivity[];
-      setRoutineActivities(routineData);
-      setHasActivities(routineData.length > 0);
-    });
-    
-    return () => unsubscribeSnapshot();
+    if (!loading && !isAuthenticated) {
+      router.push('/login');
+    }
+  }, [isAuthenticated, loading, router]);
+
+  // Fetch activities from Firestore
+  useEffect(() => {
+    const fetchActivities = async () => {
+      if (!currentUser) return;
+
+      try {
+        const activitiesQuery = query(
+          collection(db, "timetable"), 
+          where("userId", "==", currentUser.uid)
+        );
+        
+        const querySnapshot = await getDocs(activitiesQuery);
+        const fetchedActivities: Activity[] = [];
+        
+        querySnapshot.forEach((doc) => {
+          const data = doc.data() as Omit<Activity, 'id'>;
+          fetchedActivities.push({
+            ...data,
+            id: doc.id
+          } as Activity);
+        });
+
+        setActivities(fetchedActivities);
+        setFilteredActivities(fetchedActivities);
+      } catch (error) {
+        console.error("Error fetching timetable activities:", error);
+      }
+    };
+
+    if (currentUser) {
+      fetchActivities();
+    }
   }, [currentUser]);
 
-  // Helper function to calculate total minutes used in an hour
-  const calculateHourUsage = (activities: RoutineActivity[], day: number, hour: number): number => {
-    let totalMinutes = 0;
+  // Filter activities when category or day filter changes
+  useEffect(() => {
+    let filtered = [...activities];
     
-    activities.forEach(activity => {
-      const startDate = new Date(activity.startTime);
-      const endDate = new Date(activity.endTime);
+    if (filterCategory !== 'All') {
+      filtered = filtered.filter(activity => activity.category === filterCategory);
+    }
+    
+    if (filterDay !== 'All') {
+      filtered = filtered.filter(activity => activity.day === filterDay);
+    }
+    
+    setFilteredActivities(filtered);
+  }, [filterCategory, filterDay, activities]);
+
+  // Check if a new activity time overlaps with existing activities
+  const checkActivityOverlap = (day: string, startTime: string, endTime: string, activityId?: string): boolean => {
+    // Convert start/end times to minutes for easier comparison
+    const newStartMinutes = convertTimeToMinutes(startTime);
+    const newEndMinutes = convertTimeToMinutes(endTime);
+    
+    return activities.some(activity => {
+      if (activity.id === activityId || activity.day !== day) return false;
       
-      // Skip if different day
-      if (activity.dayOfWeek !== day) return;
+      const existingStartMinutes = convertTimeToMinutes(activity.startTime);
+      const existingEndMinutes = convertTimeToMinutes(activity.endTime);
       
-      const activityStartHour = startDate.getHours();
-      const activityEndHour = endDate.getHours();
-      
-      // If the activity is in the target hour
-      if (activityStartHour <= hour && activityEndHour >= hour) {
-        // Calculate minutes in the target hour
-        const startMinutesInHour = activityStartHour === hour ? startDate.getMinutes() : 0;
-        const endMinutesInHour = activityEndHour === hour ? endDate.getMinutes() : 60;
-        
-        totalMinutes += endMinutesInHour - startMinutesInHour;
-      }
+      // Check if there's any overlap
+      return (
+        (newStartMinutes >= existingStartMinutes && newStartMinutes < existingEndMinutes) || 
+        (newEndMinutes > existingStartMinutes && newEndMinutes <= existingEndMinutes) ||
+        (newStartMinutes <= existingStartMinutes && newEndMinutes >= existingEndMinutes)
+      );
     });
-    
-    return totalMinutes;
   };
-  
-  // Function to find next available slot after a given time
-  const findNextAvailableSlot = (day: number, startDate: Date, duration: number) => {
-    // Create a sorted list of all activities for this day
-    const activitiesForDay = routineActivities
-      .filter(a => a.dayOfWeek === day)
-      .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
+
+  // Convert time string (HH:MM) to minutes
+  const convertTimeToMinutes = (timeStr: string): number => {
+    const [hours, minutes] = timeStr.split(':').map(Number);
+    return hours * 60 + (minutes || 0);
+  };
+
+  // Handle form submission for creating or updating activity
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
     
-    let proposedStart = new Date(startDate);
-    let proposedEnd = new Date(proposedStart);
-    proposedEnd.setMinutes(proposedEnd.getMinutes() + duration);
+    if (!currentUser || !currentActivity || !currentActivity.title || !currentActivity.day || !currentActivity.startTime || !currentActivity.endTime) {
+      setFormError("Please fill in all required fields");
+      return;
+    }
     
-    // Check if the proposed time slot overlaps with any existing activity
-    let hasOverlap = true;
-    let iterations = 0;
-    const maxIterations = 48; // Safety limit to prevent infinite loops
-    
-    while (hasOverlap && iterations < maxIterations) {
-      iterations++;
-      hasOverlap = false;
-      
-      for (const activity of activitiesForDay) {
-        const activityStart = new Date(activity.startTime);
-        const activityEnd = new Date(activity.endTime);
+    // Validate times
+    if (currentActivity.startTime >= currentActivity.endTime) {
+      setFormError("Start time must be before end time");
+      return;
+    }
+
+    // Check for time conflicts
+    if (checkActivityOverlap(
+      currentActivity.day, 
+      currentActivity.startTime, 
+      currentActivity.endTime, 
+      isEditing ? currentActivity.id : undefined
+    )) {
+      setFormError("This time slot conflicts with an existing activity");
+      return;
+    }
+
+    try {
+      if (isEditing && currentActivity.id) {
+        // Update existing activity
+        const activityRef = doc(db, "timetable", currentActivity.id);
+        const { id, ...activityData } = currentActivity as Activity;
         
-        // Check if there's an overlap
-        if (proposedStart < activityEnd && proposedEnd > activityStart) {
-          // Overlap found, reschedule to start after this activity
-          proposedStart = new Date(activityEnd);
-          proposedEnd = new Date(proposedStart);
-          proposedEnd.setMinutes(proposedEnd.getMinutes() + duration);
-          hasOverlap = true;
-          break;
-        }
-      }
-      
-      // Also check hour limit
-      const hourOfProposedStart = proposedStart.getHours();
-      const minutesInHour = calculateHourUsage(routineActivities, day, hourOfProposedStart);
-      
-      // Calculate how many minutes of this activity fall in the current hour
-      const startMinute = proposedStart.getMinutes();
-      const endMinute = Math.min(startMinute + duration, 60);
-      const activityMinutesInHour = endMinute - startMinute;
-      
-      if (minutesInHour + activityMinutesInHour > 60) {
-        // Move to next hour
-        proposedStart.setHours(hourOfProposedStart + 1, 0, 0, 0);
-        proposedEnd = new Date(proposedStart);
-        proposedEnd.setMinutes(proposedEnd.getMinutes() + duration);
-        hasOverlap = true;
-      }
-    }
-    
-    return proposedStart;
-  };
+        await updateDoc(activityRef, {
+          ...activityData,
+          updatedAt: serverTimestamp()
+        });
 
-  // Function to clear all activities
-  const handleClearAll = async () => {
-    if (!currentUser) return;
-    
-    if (!confirm("Are you sure you want to clear your entire schedule? This cannot be undone.")) {
-      return;
-    }
-    
-    try {
-      const userRoutinesRef = collection(db, 'users', currentUser.uid, 'routines');
-      const snapshot = await getDocs(userRoutinesRef);
-      
-      // Delete all documents
-      const deletePromises = snapshot.docs.map(doc => 
-        deleteDoc(doc.ref)
-      );
-      
-      await Promise.all(deletePromises);
-      
-      // More descriptive message
-      setSuccessMessage(`All activities cleared successfully! You can add new activities to rebuild your schedule.`);
-      setTimeout(() => setSuccessMessage(''), 5000);
-    } catch (error) {
-      console.error('Error clearing activities:', error);
-    }
-  };
-
-  const handleDrop = async (day: number, hour: number, activity: RecommendedActivity) => {
-    if (!currentUser) return;
-
-    const duration = activity.defaultDuration || 30;
-    
-    // Create initial start time
-    const startTime = new Date();
-    startTime.setHours(hour, 0, 0, 0);
-    
-    // Check for overlaps and find the next available slot
-    // This will automatically handle both overlap resolution and hour limits
-    const adjustedStartTime = findNextAvailableSlot(day, startTime, duration);
-    const endTime = new Date(adjustedStartTime);
-    endTime.setMinutes(endTime.getMinutes() + duration);
-    
-    const wasRescheduled = startTime.getTime() !== adjustedStartTime.getTime();
-
-    try {
-      // Save to user's routines subcollection
-      const userRoutinesRef = collection(db, 'users', currentUser.uid, 'routines');
-      await addDoc(userRoutinesRef, {
-        userId: currentUser.uid,
-        title: activity.title,
-        category: activity.category,
-        startTime: adjustedStartTime.toISOString(),
-        endTime: endTime.toISOString(),
-        dayOfWeek: day,
-        duration: duration,
-        color: activity.category === 'journal' ? 'bg-indigo-900/20' :
-               activity.category === 'exercise' ? 'bg-emerald-900/20' :
-               activity.category === 'challenge' ? 'bg-amber-900/20' : 'bg-blue-900/20',
-        isRecurring: false,
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp()
-      });
-      
-      // Show success message
-      if (wasRescheduled) {
-        const adjustedHour = adjustedStartTime.getHours();
-        const adjustedMinutes = adjustedStartTime.getMinutes();
-        setSuccessMessage(
-          `${activity.title} was automatically rescheduled to ${adjustedStartTime.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})} due to a schedule conflict`
-        );
+        setActivities(prev => prev.map(activity => 
+          activity.id === currentActivity.id ? { ...activity, ...currentActivity } as Activity : activity
+        ));
+        setSuccessMessage("Activity updated successfully");
       } else {
-        setSuccessMessage(`${activity.title} added to your routine!`);
-      }
-      setTimeout(() => setSuccessMessage(''), 3000);
-    } catch (error) {
-      console.error('Error adding activity:', error);
-    }
-  };
+        // Create new activity
+        const newActivity = {
+          ...currentActivity,
+          userId: currentUser.uid,
+          completed: false,
+          createdAt: serverTimestamp()
+        };
 
-  const handleAddActivity = async () => {
-    if (!currentUser) return;
-    
-    if (!newActivity.title || !newActivity.startTime) {
-      alert('Please fill in all required fields');
-      return;
-    }
-  
-    try {
-      // Create a base date object for today
-      const today = new Date();
-      
-      // Parse start time
-      let startDate = new Date(today);
-      if (newActivity.startTime) {
-        const [hours, minutes] = newActivity.startTime.split(':').map(Number);
-        startDate.setHours(hours, minutes, 0, 0);
+        const docRef = await addDoc(collection(db, "timetable"), newActivity);
+        
+        setActivities(prev => [...prev, { ...newActivity, id: docRef.id } as Activity]);
+        setSuccessMessage("Activity added successfully");
       }
-      
-      // Find the next available slot considering conflicts and time limits
-      // This will automatically handle both overlap resolution and hour limits
-      const adjustedStartDate = findNextAvailableSlot(
-        newActivity.dayOfWeek, 
-        startDate, 
-        newActivity.duration
-      );
-      
-      // Calculate end time based on duration
-      let endDate = new Date(adjustedStartDate);
-      endDate.setMinutes(endDate.getMinutes() + newActivity.duration);
-      
-      const wasRescheduled = startDate.getTime() !== adjustedStartDate.getTime();
-      
-      // Color based on category
-      const color = 
-        newActivity.category === 'journal' ? 'bg-indigo-900/20' :
-        newActivity.category === 'exercise' ? 'bg-emerald-900/20' :
-        newActivity.category === 'challenge' ? 'bg-amber-900/20' : 
-        newActivity.category === 'therapy' ? 'bg-blue-900/20' : 'bg-blue-900/20';
-  
-      // Save to user's routines subcollection
-      const userRoutinesRef = collection(db, 'users', currentUser.uid, 'routines');
-      await addDoc(userRoutinesRef, {
-        userId: currentUser.uid,
-        title: newActivity.title,
-        category: newActivity.category,
-        startTime: adjustedStartDate.toISOString(),
-        endTime: endDate.toISOString(),
-        dayOfWeek: newActivity.dayOfWeek,
-        duration: newActivity.duration,
-        color: color,
-        isRecurring: newActivity.isRecurring,
-        notes: newActivity.notes,
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp()
-      });
-      
-      setIsModalOpen(false);
-      
-      // Notify if rescheduled with more detailed message
-      if (wasRescheduled) {
-        setSuccessMessage(
-          `Activity automatically rescheduled to ${adjustedStartDate.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})} due to a schedule conflict or time limit`
-        );
-      } else {
-        setSuccessMessage('Activity added successfully!');
-      }
-      setTimeout(() => setSuccessMessage(''), 3000);
-      
+
       // Reset form
-      setNewActivity({
-        title: '',
-        category: 'custom',
-        startTime: '',
-        duration: 30,
-        dayOfWeek: 0,
-        color: 'bg-blue-900/20',
-        isRecurring: false,
-        notes: ''
-      });
+      setCurrentActivity(null);
+      setIsFormOpen(false);
+      setIsEditing(false);
+      setFormError(null);
+
+      // Hide success message after 3 seconds
+      setTimeout(() => {
+        setSuccessMessage(null);
+      }, 3000);
     } catch (error) {
-      console.error('Error adding custom activity:', error);
+      console.error("Error saving activity:", error);
+      setFormError("Failed to save activity. Please try again.");
     }
   };
 
-  const handleSlotClick = (day: number, hour: number, activities: RoutineActivity[]) => {
-    setSelectedSlot({ day, hour, activities });
-    setIsDetailsModalOpen(true);
-  };
-
-  const handleDeleteActivity = async (activityId: string) => {
-    if (!currentUser) return;
-    
+  // Toggle activity completion status
+  const toggleActivityCompletion = async (activityId: string, currentStatus: boolean) => {
     try {
-      const activityRef = doc(db, 'users', currentUser.uid, 'routines', activityId);
-      await deleteDoc(activityRef);
-      
-      // Show success message
-      setSuccessMessage('Activity deleted successfully!');
-      setTimeout(() => setSuccessMessage(''), 3000);
-      
-      // Close details modal if open
-      if (isDetailsModalOpen) {
-        setIsDetailsModalOpen(false);
-      }
-    } catch (error) {
-      console.error('Error deleting activity:', error);
-    }
-  };
-
-  const handleEditActivity = (activity: RoutineActivity) => {
-    // Convert ISO timestamps to time inputs (HH:MM format)
-    const startDate = new Date(activity.startTime);
-    
-    const formatTimeForInput = (date: Date) => {
-      const hours = String(date.getHours()).padStart(2, '0');
-      const minutes = String(date.getMinutes()).padStart(2, '0');
-      return `${hours}:${minutes}`;
-    };
-    
-    // Calculate duration from start and end times
-    const endDate = new Date(activity.endTime);
-    const durationMs = endDate.getTime() - startDate.getTime();
-    const durationMinutes = Math.round(durationMs / 60000);
-    
-    setEditingActivity(activity);
-    setNewActivity({
-      title: activity.title,
-      category: activity.category,
-      startTime: formatTimeForInput(startDate),
-      duration: activity.duration || durationMinutes,
-      dayOfWeek: activity.dayOfWeek,
-      color: activity.color,
-      isRecurring: activity.isRecurring,
-      notes: activity.notes || ''
-    });
-    
-    setIsDetailsModalOpen(false);
-    setIsModalOpen(true);
-  };
-
-  const handleUpdateActivity = async () => {
-    if (!currentUser || !editingActivity) return;
-    
-    if (!newActivity.title || !newActivity.startTime) {
-      alert('Please fill in all required fields');
-      return;
-    }
-    
-    try {
-      // Create a base date object for today
-      const today = new Date();
-      
-      // Parse start time
-      let startDate = new Date(today);
-      if (newActivity.startTime) {
-        const [hours, minutes] = newActivity.startTime.split(':').map(Number);
-        startDate.setHours(hours, minutes, 0, 0);
-      }
-      
-      // Calculate end time based on duration
-      let endDate = new Date(startDate);
-      endDate.setMinutes(endDate.getMinutes() + newActivity.duration);
-      
-      // Color based on category
-      const color = 
-        newActivity.category === 'journal' ? 'bg-indigo-900/20' :
-        newActivity.category === 'exercise' ? 'bg-emerald-900/20' :
-        newActivity.category === 'challenge' ? 'bg-amber-900/20' : 
-        newActivity.category === 'therapy' ? 'bg-blue-900/20' : 'bg-blue-900/20';
-  
-      // Update the existing activity
-      const activityRef = doc(db, 'users', currentUser.uid, 'routines', editingActivity.id);
+      const activityRef = doc(db, "timetable", activityId);
       await updateDoc(activityRef, {
-        userId: currentUser.uid,
-        title: newActivity.title,
-        category: newActivity.category,
-        startTime: startDate.toISOString(),
-        endTime: endDate.toISOString(),
-        dayOfWeek: newActivity.dayOfWeek,
-        duration: newActivity.duration,
-        color: color,
-        isRecurring: newActivity.isRecurring,
-        notes: newActivity.notes,
+        completed: !currentStatus,
         updatedAt: serverTimestamp()
       });
-      
-      setIsModalOpen(false);
-      setEditingActivity(null);
-      // Reset form
-      setNewActivity({
-        title: '',
-        category: 'custom',
-        startTime: '',
-        duration: 30,
-        dayOfWeek: 0,
-        color: 'bg-blue-900/20',
-        isRecurring: false,
-        notes: ''
-      });
-      
-      // Show success message
-      setSuccessMessage('Activity updated successfully!');
-      setTimeout(() => setSuccessMessage(''), 3000);
+
+      setActivities(prev => prev.map(activity => 
+        activity.id === activityId ? { ...activity, completed: !currentStatus } : activity
+      ));
     } catch (error) {
-      console.error('Error updating activity:', error);
+      console.error("Error updating activity status:", error);
     }
+  };
+
+  // Delete an activity
+  const deleteActivity = async (activityId: string) => {
+    try {
+      await deleteDoc(doc(db, "timetable", activityId));
+      setActivities(prev => prev.filter(activity => activity.id !== activityId));
+      setSuccessMessage("Activity deleted successfully");
+      
+      // Hide success message after 3 seconds
+      setTimeout(() => {
+        setSuccessMessage(null);
+      }, 3000);
+    } catch (error) {
+      console.error("Error deleting activity:", error);
+    }
+  };
+
+  // Edit an activity
+  const editActivity = (activity: Activity) => {
+    setCurrentActivity(activity);
+    setIsEditing(true);
+    setIsFormOpen(true);
+    setFormError(null);
+  };
+
+  // Get activities for a specific 3-hour time block
+  const getActivitiesForTimeBlock = (day: string, blockStartTime: string): Activity[] => {
+    // Get the current block's start time in minutes
+    const blockStartMinutes = convertTimeToMinutes(blockStartTime);
+    
+    // Calculate the end time of the block (3 hours later)
+    const blockEndHour = parseInt(blockStartTime.split(':')[0]) + 3;
+    const blockEndTime = `${blockEndHour < 10 ? '0' + blockEndHour : blockEndHour}:00`;
+    const blockEndMinutes = convertTimeToMinutes(blockEndTime);
+    
+    // Find all activities that overlap with this time block
+    return activities.filter(activity => {
+      if (activity.day !== day) return false;
+      
+      const activityStartMinutes = convertTimeToMinutes(activity.startTime);
+      const activityEndMinutes = convertTimeToMinutes(activity.endTime);
+      
+      // Check if the activity overlaps with the time block
+      return (
+        // Activity starts during the block
+        (activityStartMinutes >= blockStartMinutes && activityStartMinutes < blockEndMinutes) ||
+        // Activity ends during the block
+        (activityEndMinutes > blockStartMinutes && activityEndMinutes <= blockEndMinutes) ||
+        // Activity spans the entire block
+        (activityStartMinutes <= blockStartMinutes && activityEndMinutes >= blockEndMinutes)
+      );
+    });
+  };
+
+  // Format time for display
+  const formatTime = (timeStr: string) => {
+    const [hours, minutes] = timeStr.split(':');
+    const hour = parseInt(hours);
+    
+    if (hour === 0 || hour === 24) {
+      return `12:${minutes || '00'} AM`;
+    } else if (hour === 12) {
+      return `12:${minutes || '00'} PM`;
+    } else if (hour > 12) {
+      return `${hour - 12}:${minutes || '00'} PM`;
+    } else {
+      return `${hour}:${minutes || '00'} AM`;
+    }
+  };
+
+  // Handle click on a time block
+  const handleTimeBlockClick = (day: string, startTime: string) => {
+    setSelectedTimeSlot({ day, startTime });
+  };
+
+  // Generate visual indicator of activities in a time block
+  const getTimeBlockContent = (day: string, startTime: string) => {
+    const activitiesInBlock = getActivitiesForTimeBlock(day, startTime);
+    
+    if (activitiesInBlock.length === 0) {
+      return null;
+    }
+    
+    // Group by category for color-coding
+    const categories = [...new Set(activitiesInBlock.map(a => a.category))];
+    
+    // Show dots for each activity, up to 3, then a +X indicator
+    return (
+      <div className="absolute inset-0 flex items-center justify-center">
+        <div className="flex gap-1">
+          {categories.slice(0, 3).map((category, idx) => (
+            <div 
+              key={idx} 
+              className={`w-2 h-2 rounded-full ${category === 'Journal' ? 'bg-indigo-500' : 
+                          category === 'Exercise' ? 'bg-emerald-500' :
+                          category === 'Challenge' ? 'bg-amber-500' :
+                          category === 'Therapy' ? 'bg-blue-500' :
+                          'bg-purple-500'}`}
+            ></div>
+          ))}
+          {activitiesInBlock.length > 3 && (
+            <span className="text-xs text-slate-300 ml-1">+{activitiesInBlock.length - 3}</span>
+          )}
+        </div>
+      </div>
+    );
   };
 
   return (
-    <DndProvider backend={HTML5Backend}>
-      <div className="flex h-screen bg-slate-900 text-slate-300">
-        <Navbar activeTab={activeTab} setActiveTab={setActiveTab} />
-        
-        <main className="flex-1 overflow-y-auto p-6 relative">
-          {/* Success Message Notification */}
-          {successMessage && (
-            <div className="fixed top-6 right-6 bg-green-600 text-white px-4 py-2 rounded-md shadow-lg flex items-center z-50">
-              <CheckCircle className="h-5 w-5 mr-2" />
-              {successMessage}
-              <button onClick={() => setSuccessMessage('')} className="ml-2">
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-          )}
-          
-          <div className="mb-8">
-            <h1 className="text-3xl font-bold text-white">Routine Builder</h1>
-            <p className="mt-2 text-slate-400">
-              Design your personalized mental wellness schedule with activities that work for you.
-            </p>
+    <div className="flex min-h-screen bg-slate-900 text-slate-300">
+      <Navbar activeTab={activeTab} setActiveTab={setActiveTab} />
+
+      {/* Main Content Container */}
+      <div className="flex-grow p-6 bg-slate-800/50 rounded-lg border border-slate-700 ml-6 mb-6 overflow-x-auto">
+        {/* Header Section */}
+        <div className="flex justify-between items-center mb-8">
+          <div>
+            <h1 className="text-white font-bold text-3xl">Weekly Timetable</h1>
+            <p className="text-slate-400 mt-2">Organize your week with a structured schedule</p>
           </div>
           
-          <div className="bg-slate-800/70 rounded-lg border border-slate-700 p-6 mb-6">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-semibold text-white">Recommended Activities</h3>
-              <div className="flex items-center gap-2">
-                <div className="relative">
-                  <input
-                    type="text"
-                    placeholder="Search activities..."
-                    className="bg-slate-900/50 border border-slate-700 rounded-md py-1 px-3 pl-8 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
-                  />
-                  <Search className="absolute left-2 top-1.5 h-4 w-4 text-slate-500" />
-                </div>
-                
-                {/* Add Activity Button - More visible in the header */}
-                <button 
-                  className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded-md text-sm flex items-center"
-                  onClick={() => setIsModalOpen(true)}
+          <div className="flex items-center gap-3">
+            <div className="flex gap-2 p-1 bg-slate-800 rounded-md">
+              <button 
+                onClick={() => setViewMode('grid')} 
+                className={`px-3 py-1.5 rounded-md text-sm transition-colors ${
+                  viewMode === 'grid' 
+                    ? 'bg-blue-700 text-white' 
+                    : 'text-slate-300 hover:bg-slate-700'
+                }`}
+              >
+                Grid View
+              </button>
+              <button 
+                onClick={() => setViewMode('list')} 
+                className={`px-3 py-1.5 rounded-md text-sm transition-colors ${
+                  viewMode === 'list' 
+                    ? 'bg-blue-700 text-white' 
+                    : 'text-slate-300 hover:bg-slate-700'
+                }`}
+              >
+                List View
+              </button>
+            </div>
+            
+            <div className="flex gap-2">
+              <div className="relative">
+                <select 
+                  className="bg-slate-800/70 border border-slate-700 rounded-md py-2 pl-3 pr-8 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  value={filterDay}
+                  onChange={(e) => setFilterDay(e.target.value)}
                 >
-                  <Plus className="h-4 w-4 mr-1" />
-                  Add Activity
-                </button>
+                  <option value="All">All Days</option>
+                  {daysOfWeek.map(day => (
+                    <option key={day} value={day}>{day}</option>
+                  ))}
+                </select>
+                <ChevronDown className="absolute right-2 top-2.5 h-4 w-4 text-slate-400 pointer-events-none" />
+              </div>
+              
+              <div className="relative">
+                <select 
+                  className="bg-slate-800/70 border border-slate-700 rounded-md py-2 pl-3 pr-8 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  value={filterCategory}
+                  onChange={(e) => setFilterCategory(e.target.value)}
+                >
+                  <option value="All">All Categories</option>
+                  <option value="Journal">Journal</option>
+                  <option value="Exercise">Exercise</option>
+                  <option value="Challenge">Challenge</option>
+                  <option value="Therapy">Therapy</option>
+                  <option value="Custom">Custom</option>
+                </select>
+                <Filter className="absolute right-2 top-2.5 h-4 w-4 text-slate-400 pointer-events-none" />
               </div>
             </div>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {recommendedActivities.map((activity) => (
-                <ActivityCard 
-                  key={activity.id} 
-                  activity={activity} 
-                />
-              ))}
-            </div>
+            <button 
+              className="bg-blue-600 hover:bg-blue-700 text-white rounded-md py-2 px-4 flex items-center gap-2 transition-colors"
+              onClick={() => {
+                setIsFormOpen(true);
+                setCurrentActivity({
+                  title: '',
+                  description: '',
+                  category: 'Journal',
+                  day: 'Monday',
+                  startTime: '09:00',
+                  endTime: '10:00'
+                });
+                setIsEditing(false);
+                setFormError(null);
+              }}
+            >
+              <Plus className="h-5 w-5" />
+              Add Activity
+            </button>
           </div>
-          
-          {hasActivities ? (
-            <div className="bg-slate-800/70 rounded-lg border border-slate-700 p-6">
-              <div className="flex justify-between items-center mb-6">
-                <h3 className="text-lg font-semibold text-white">Your Weekly Schedule</h3>
-                <div className="flex space-x-2">
-                  <button className="bg-slate-800 hover:bg-slate-700 text-slate-300 px-3 py-1 rounded-md text-sm">
-                    Today
-                  </button>
-                  <button 
-                    className="bg-red-600/30 hover:bg-red-600/50 text-red-300 px-3 py-1 rounded-md text-sm flex items-center"
-                    onClick={handleClearAll}
-                  >
-                    <Trash className="h-4 w-4 mr-1" />
-                    Clear All
-                  </button>
+        </div>
+
+        {/* Success Message */}
+        {successMessage && (
+          <div className="mb-6 bg-green-900/30 border border-green-700/50 text-green-300 py-3 px-4 rounded-md flex items-center justify-between">
+            <span>{successMessage}</span>
+            <button onClick={() => setSuccessMessage(null)}>
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+        )}
+
+        {activities.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-20 text-center">
+            <Calendar className="h-16 w-16 text-slate-600 mb-4" />
+            <h3 className="text-xl font-semibold text-white mb-2">Your timetable is empty</h3>
+            <p className="text-slate-400 mb-6 max-w-md">
+              Start organizing your week by adding activities to your timetable.
+            </p>
+            <button 
+              className="bg-blue-600 hover:bg-blue-700 text-white rounded-md py-2.5 px-5 flex items-center gap-2 transition-colors"
+              onClick={() => {
+                setIsFormOpen(true);
+                setCurrentActivity({
+                  title: '',
+                  description: '',
+                  category: 'Journal',
+                  day: 'Monday',
+                  startTime: '09:00',
+                  endTime: '10:00'
+                });
+                setIsEditing(false);
+              }}
+            >
+              <Plus className="h-5 w-5" />
+              Add First Activity
+            </button>
+          </div>
+        ) : viewMode === 'grid' ? (
+          // GRID VIEW - Updated with 3-hour blocks and 24-hour coverage
+          <div className="mb-8 overflow-x-auto">
+            <div className="min-w-[1000px] border border-slate-700 rounded-xl overflow-hidden">
+              {/* Day header row */}
+              <div className="grid grid-cols-8 bg-slate-800">
+                <div className="p-3 border-r border-slate-700 text-slate-400 font-medium text-sm">
+                  Time
                 </div>
+                {daysOfWeek.map(day => (
+                  <div key={day} className="p-3 border-r border-slate-700 text-center text-white font-medium">
+                    {day}
+                  </div>
+                ))}
               </div>
               
-              <div className="relative overflow-x-auto">
-                <div className="grid grid-cols-8 gap-1">
-                  <div className="col-span-1">
-                    <div className="h-10 mb-1"></div>
-                    {hours.map(hour => (
-                      <div key={`hour-${hour}`} className="h-16 pr-2 flex items-center justify-end text-sm text-slate-500">
-                        {hour % 12 === 0 ? '12' : hour % 12}:00 {hour >= 12 ? 'PM' : 'AM'}
-                      </div>
-                    ))}
+              {/* Time slots - Updated to 3-hour blocks */}
+              {timeSlots.map((time, index) => (
+                <div key={time} className="grid grid-cols-8 border-t border-slate-700">
+                  {/* Time column */}
+                  <div className="p-2 border-r border-slate-700 text-center text-sm text-slate-400 flex flex-col items-center justify-center">
+                    <span>{formatTime(time)}</span>
+                    <span className="text-xs text-slate-500">to</span>
+                    <span>
+                      {formatTime(`${(parseInt(time.split(':')[0]) + 3) % 24}:00`)}
+                    </span>
                   </div>
                   
-                  {days.map((day, dayIndex) => (
-                    <div key={`day-${dayIndex}`} className="col-span-1">
-                      <div className="h-10 flex items-center justify-center text-sm font-medium mb-1 bg-slate-800 rounded-t-md">
-                        {day}
-                      </div>
-                      {hours.map(hour => (
-                        <TimeSlot
-                          key={`slot-${dayIndex}-${hour}`}
-                          day={dayIndex}
-                          hour={hour}
-                          activities={routineActivities}
-                          onDrop={handleDrop}
-                          onSlotClick={handleSlotClick}
-                        />
-                      ))}
+                  {/* Day columns */}
+                  {daysOfWeek.map(day => (
+                    <div 
+                      key={`${day}-${time}`} 
+                      className={`relative border-r border-slate-700 min-h-[90px] cursor-pointer hover:bg-slate-800/80 transition-colors ${
+                        index % 2 === 0 ? 'bg-slate-800/30' : 'bg-slate-800/50'
+                      }`}
+                      onClick={() => handleTimeBlockClick(day, time)}
+                    >
+                      {/* Indicator for activities in this block */}
+                      {getTimeBlockContent(day, time)}
                     </div>
                   ))}
                 </div>
-              </div>
+              ))}
             </div>
-          ) : (
-            <div className="flex flex-col items-center justify-center h-64 bg-slate-800/30 rounded-lg border border-dashed border-slate-700 p-6">
-              <Calendar className="h-12 w-12 text-slate-500 mb-4" />
-              <h3 className="text-lg font-medium text-white">Create Your First Routine</h3>
-              <p className="text-center text-slate-400 mt-2 max-w-md">
-                Drag activities from the recommended section or create your own to build a routine that supports your mental wellness journey.
-              </p>
-              <button 
-                className="mt-4 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm flex items-center"
-                onClick={() => setIsModalOpen(true)}
-              >
-                <Plus className="h-4 w-4 mr-2" />
-                Add First Activity
-              </button>
-            </div>
-          )}
-          
-          {/* Removed floating button since we added the button in the header */}
-          
-          {isDetailsModalOpen && selectedSlot && (
-            <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
-              <div className="bg-slate-800 rounded-lg border border-slate-700 p-6 w-full max-w-md">
-                <div className="flex justify-between items-center mb-4">
-                  <h3 className="text-lg font-semibold text-white">
-                    {days[selectedSlot.day]} at {selectedSlot.hour % 12 === 0 ? '12' : selectedSlot.hour % 12}:00 {selectedSlot.hour >= 12 ? 'PM' : 'AM'}
-                  </h3>
-                  <button 
-                    onClick={() => setIsDetailsModalOpen(false)} 
-                    className="text-slate-400 hover:text-white"
-                  >
-                    <X className="h-5 w-5" />
-                  </button>
-                </div>
-                
-                {selectedSlot.activities.length === 0 ? (
-                  <div className="text-center py-6 text-slate-400">
-                    <Calendar className="h-12 w-12 mx-auto mb-2" />
-                    <p>No activities scheduled for this time slot.</p>
+          </div>
+        ) : (
+          // LIST VIEW - No changes needed
+          <div className="space-y-4 mb-10">
+            {daysOfWeek.map(day => {
+              const dayActivities = filteredActivities.filter(a => a.day === day || filterDay === 'All');
+              
+              if (filterDay !== 'All' && filterDay !== day) {
+                return null;
+              }
+              
+              return dayActivities.length > 0 && (
+                <div key={day} className="border border-slate-700 rounded-xl overflow-hidden">
+                  <div className="bg-slate-800 p-3 font-medium text-white">
+                    {filterDay === 'All' ? day : 'Activities'}
                   </div>
-                ) : (
-                  <div className="space-y-4">
-                    {selectedSlot.activities.map((activity) => (
+                  
+                  <div className="divide-y divide-slate-700/50">
+                    {dayActivities
+                      .filter(a => a.day === day)
+                      .sort((a, b) => a.startTime.localeCompare(b.startTime))
+                      .map(activity => (
+                        <div 
+                          key={activity.id} 
+                          className={`p-4 ${categoryColors[activity.category]} hover:bg-slate-800/40 transition-colors`}
+                        >
+                          <div className="flex justify-between items-start">
+                            <div>
+                              <div className="flex items-center gap-2 mb-1">
+                                <span className={`px-2 py-0.5 rounded text-xs font-medium ${categoryTextColors[activity.category]}`}>
+                                  {activity.category}
+                                </span>
+                                <span className="text-slate-400 text-sm">
+                                  {formatTime(activity.startTime)} - {formatTime(activity.endTime)}
+                                </span>
+                              </div>
+                              <h4 className="font-medium text-white">{activity.title}</h4>
+                              {activity.description && (
+                                <p className="text-slate-300 text-sm mt-1">{activity.description}</p>
+                              )}
+                            </div>
+                            
+                            <div className="flex gap-1">
+                              <button 
+                                onClick={() => toggleActivityCompletion(activity.id, activity.completed)}
+                                className={`p-1.5 rounded-md transition-colors ${
+                                  activity.completed 
+                                    ? 'bg-green-700/20 text-green-400 hover:bg-green-700/30' 
+                                    : 'bg-slate-700/20 text-slate-400 hover:bg-slate-700/30'
+                                }`}
+                              >
+                                <Check className="h-4 w-4" />
+                              </button>
+                              <button 
+                                onClick={() => editActivity(activity)}
+                                className="p-1.5 rounded-md bg-slate-700/20 text-slate-400 hover:bg-slate-700/30 transition-colors"
+                              >
+                                <Edit className="h-4 w-4" />
+                              </button>
+                              <button 
+                                onClick={() => deleteActivity(activity.id)}
+                                className="p-1.5 rounded-md bg-red-900/20 text-red-400 hover:bg-red-900/30 transition-colors"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                  </div>
+                </div>
+              );
+            })}
+
+            {filteredActivities.length === 0 && (
+              <div className="flex flex-col items-center justify-center py-10 text-center">
+                <p className="text-slate-400">No activities match your filters.</p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Time Block Modal */}
+        {selectedTimeSlot && (
+          <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={() => setSelectedTimeSlot(null)}>
+            <div 
+              className="bg-slate-800 border border-slate-700 rounded-xl p-6 w-full max-w-md animate-fadeIn"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex justify-between items-center mb-5">
+                <h2 className="text-xl font-bold text-white">
+                  {selectedTimeSlot.day}: {formatTime(selectedTimeSlot.startTime)} - {formatTime(`${(parseInt(selectedTimeSlot.startTime.split(':')[0]) + 3) % 24}:00`)}
+                </h2>
+                <button 
+                  className="p-1.5 rounded-md bg-slate-700/30 hover:bg-slate-700/50 text-slate-400"
+                  onClick={() => setSelectedTimeSlot(null)}
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+
+              <div className="space-y-4 max-h-[60vh] overflow-y-auto">
+                {getActivitiesForTimeBlock(selectedTimeSlot.day, selectedTimeSlot.startTime).length > 0 ? (
+                  getActivitiesForTimeBlock(selectedTimeSlot.day, selectedTimeSlot.startTime)
+                    .sort((a, b) => a.startTime.localeCompare(b.startTime))
+                    .map(activity => (
                       <div 
                         key={activity.id} 
-                        className="bg-slate-700/50 border border-slate-600 rounded-md p-4"
+                        className={`${categoryColors[activity.category]} border rounded-lg p-4`}
                       >
                         <div className="flex justify-between items-start">
                           <div>
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className={`px-2 py-0.5 rounded text-xs font-medium ${categoryTextColors[activity.category]}`}>
+                                {activity.category}
+                              </span>
+                              <span className={`px-2 py-0.5 rounded-md text-xs font-medium ${
+                                activity.completed ? 'bg-green-900/30 text-green-400' : 'bg-slate-700/30 text-slate-400'
+                              }`}>
+                                {activity.completed ? 'Completed' : 'Pending'}
+                              </span>
+                            </div>
                             <h4 className="font-medium text-white">{activity.title}</h4>
-                            <p className="text-sm text-slate-400">
-                              {new Date(activity.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - 
-                              {new Date(activity.endTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                            </p>
-                            {activity.notes && (
-                              <p className="mt-2 text-sm text-slate-300">{activity.notes}</p>
+                            <div className="text-slate-400 text-sm mt-1">
+                              {formatTime(activity.startTime)} - {formatTime(activity.endTime)}
+                            </div>
+                            {activity.description && (
+                              <p className="text-slate-300 text-sm mt-2">{activity.description}</p>
                             )}
                           </div>
-                          <div className="flex space-x-1">
+                          
+                          <div className="flex gap-1">
                             <button 
-                              onClick={() => handleEditActivity(activity)}
-                              className="p-1 text-slate-400 hover:text-blue-400"
+                              onClick={() => toggleActivityCompletion(activity.id, activity.completed)}
+                              className={`p-1.5 rounded-md transition-colors ${
+                                activity.completed 
+                                  ? 'bg-green-700/20 text-green-400 hover:bg-green-700/30' 
+                                  : 'bg-slate-700/20 text-slate-400 hover:bg-slate-700/30'
+                              }`}
+                            >
+                              <Check className="h-4 w-4" />
+                            </button>
+                            <button 
+                              onClick={() => {
+                                editActivity(activity);
+                                setSelectedTimeSlot(null);
+                              }}
+                              className="p-1.5 rounded-md bg-slate-700/20 text-slate-400 hover:bg-slate-700/30 transition-colors"
                             >
                               <Edit className="h-4 w-4" />
                             </button>
                             <button 
-                              onClick={() => handleDeleteActivity(activity.id)}
-                              className="p-1 text-slate-400 hover:text-red-400"
+                              onClick={() => {
+                                deleteActivity(activity.id);
+                                setSelectedTimeSlot(null);
+                              }}
+                              className="p-1.5 rounded-md bg-red-900/20 text-red-400 hover:bg-red-900/30 transition-colors"
                             >
                               <Trash2 className="h-4 w-4" />
                             </button>
                           </div>
                         </div>
-                        <div className="flex items-center mt-2">
-                          <span className="text-xs bg-slate-600/50 text-slate-300 px-2 py-0.5 rounded">
-                            {activity.category}
-                          </span>
-                          {activity.isRecurring && (
-                            <span className="text-xs bg-blue-600/30 text-blue-300 px-2 py-0.5 rounded ml-2">
-                              Recurring
-                            </span>
-                          )}
-                        </div>
                       </div>
-                    ))}
+                    ))
+                ) : (
+                  <div className="flex flex-col items-center justify-center py-8 text-center">
+                    <p className="text-slate-400 mb-4">No activities scheduled for this time block.</p>
+                    <button 
+                      className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md flex items-center gap-2 transition-colors"
+                      onClick={() => {
+                        setIsFormOpen(true);
+                        setCurrentActivity({
+                          title: '',
+                          description: '',
+                          category: 'Journal',
+                          day: selectedTimeSlot.day as 'Monday' | 'Tuesday' | 'Wednesday' | 'Thursday' | 'Friday' | 'Saturday' | 'Sunday',
+                          startTime: selectedTimeSlot.startTime,
+                          endTime: `${(parseInt(selectedTimeSlot.startTime.split(':')[0]) + 1).toString().padStart(2, '0')}:00`
+                        });
+                        setIsEditing(false);
+                        setSelectedTimeSlot(null);
+                      }}
+                    >
+                      <Plus className="h-4 w-4" />
+                      Add Activity
+                    </button>
                   </div>
                 )}
               </div>
+              
+              <div className="mt-6 flex justify-center">
+                <button 
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md flex items-center gap-2 transition-colors"
+                  onClick={() => {
+                    setIsFormOpen(true);
+                    setCurrentActivity({
+                      title: '',
+                      description: '',
+                      category: 'Journal',
+                      day: selectedTimeSlot.day as 'Monday' | 'Tuesday' | 'Wednesday' | 'Thursday' | 'Friday' | 'Saturday' | 'Sunday',
+                      startTime: selectedTimeSlot.startTime,
+                      endTime: `${(parseInt(selectedTimeSlot.startTime.split(':')[0]) + 1).toString().padStart(2, '0')}:00`
+                    });
+                    setIsEditing(false);
+                    setSelectedTimeSlot(null);
+                  }}
+                >
+                  <Plus className="h-4 w-4" />
+                  Add Activity to This Time Block
+                </button>
+              </div>
             </div>
-          )}
-          
-          {isModalOpen && (
-            <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
-              <div className="bg-slate-800 rounded-lg border border-slate-700 p-6 w-full max-w-md">
-                <div className="flex justify-between items-center mb-4">
-                  <h3 className="text-lg font-semibold text-white">
-                    {editingActivity ? 'Edit Activity' : 'Create Activity'}
-                  </h3>
-                  <button 
-                    onClick={() => {
-                      setIsModalOpen(false);
-                      setEditingActivity(null);
-                      setNewActivity({
-                        title: '',
-                        category: 'custom',
-                        startTime: '',
-                        duration: 30,
-                        dayOfWeek: 0,
-                        color: 'bg-blue-900/20',
-                        isRecurring: false,
-                        notes: ''
-                      });
-                    }} 
-                    className="text-slate-400 hover:text-white"
-                  >
-                    <X className="h-5 w-5" />
-                  </button>
+          </div>
+        )}
+
+        {/* Activity Form Modal */}
+        {isFormOpen && (
+          <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+            <div 
+              ref={formRef}
+              className="bg-slate-800 border border-slate-700 rounded-xl p-6 w-full max-w-md animate-fadeIn"
+            >
+              <h2 className="text-xl font-bold text-white mb-5">
+                {isEditing ? 'Edit Activity' : 'Add New Activity'}
+              </h2>
+              
+              {formError && (
+                <div className="mb-4 p-3 bg-red-900/20 border border-red-700/30 text-red-300 rounded-md text-sm">
+                  {formError}
+                </div>
+              )}
+              
+              <form onSubmit={handleSubmit}>
+                <div className="mb-4">
+                  <label className="block text-slate-300 text-sm font-medium mb-2">
+                    Title *
+                  </label>
+                  <input
+                    type="text"
+                    value={currentActivity?.title || ''}
+                    onChange={(e) => setCurrentActivity(prev => ({ ...prev!, title: e.target.value }))}
+                    className="w-full bg-slate-900/70 border border-slate-700 rounded-md py-2.5 px-4 text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    placeholder="Enter activity title"
+                    required
+                  />
                 </div>
                 
-                <div className="space-y-4">
+                <div className="mb-4">
+                  <label className="block text-slate-300 text-sm font-medium mb-2">
+                    Description
+                  </label>
+                  <textarea
+                    value={currentActivity?.description || ''}
+                    onChange={(e) => setCurrentActivity(prev => ({ ...prev!, description: e.target.value }))}
+                    className="w-full bg-slate-900/70 border border-slate-700 rounded-md py-2.5 px-4 text-white focus:outline-none focus:ring-1 focus:ring-blue-500 min-h-[80px]"
+                    placeholder="Enter activity description"
+                  />
+                </div>
+                
+                <div className="grid grid-cols-2 gap-4 mb-4">
                   <div>
-                    <label className="block text-sm font-medium text-slate-400 mb-1">Activity Name</label>
-                    <input 
-                      type="text"
-                      className="w-full bg-slate-900 border border-slate-700 rounded-md py-2 px-3 text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
-                      value={newActivity.title}
-                      onChange={(e) => setNewActivity({...newActivity, title: e.target.value})}
+                    <label className="block text-slate-300 text-sm font-medium mb-2">
+                      Category
+                    </label>
+                    <select
+                      value={currentActivity?.category || 'Journal'}
+                      onChange={(e) => setCurrentActivity(prev => ({ ...prev!, category: e.target.value as any }))}
+                      className="w-full bg-slate-900/70 border border-slate-700 rounded-md py-2.5 px-4 text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    >
+                      <option value="Journal">Journal</option>
+                      <option value="Exercise">Exercise</option>
+                      <option value="Challenge">Challenge</option>
+                      <option value="Therapy">Therapy</option>
+                      <option value="Custom">Custom</option>
+                    </select>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-slate-300 text-sm font-medium mb-2">
+                      Day *
+                    </label>
+                    <select
+                      value={currentActivity?.day || 'Monday'}
+                      onChange={(e) => setCurrentActivity(prev => ({ ...prev!, day: e.target.value as any }))}
+                      className="w-full bg-slate-900/70 border border-slate-700 rounded-md py-2.5 px-4 text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                      required
+                    >
+                      {daysOfWeek.map(day => (
+                        <option key={day} value={day}>{day}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                
+                <div className="grid grid-cols-2 gap-4 mb-6">
+                  <div>
+                    <label className="block text-slate-300 text-sm font-medium mb-2">
+                      Start Time *
+                    </label>
+                    <input
+                      type="time"
+                      value={currentActivity?.startTime || '09:00'}
+                      onChange={(e) => setCurrentActivity(prev => ({ ...prev!, startTime: e.target.value }))}
+                      className="w-full bg-slate-900/70 border border-slate-700 rounded-md py-2.5 px-4 text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                      required
                     />
                   </div>
                   
                   <div>
-                    <label className="block text-sm font-medium text-slate-400 mb-1">Category</label>
-                    <select 
-                      className="w-full bg-slate-900 border border-slate-700 rounded-md py-2 px-3 text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
-                      value={newActivity.category}
-                      onChange={(e) => setNewActivity({
-                        ...newActivity, 
-                        category: e.target.value as 'journal' | 'exercise' | 'challenge' | 'therapy' | 'custom'
-                      })}
-                    >
-                      <option value="journal">Journaling</option>
-                      <option value="exercise">Exercise</option>
-                      <option value="challenge">Mental Challenge</option>
-                      <option value="therapy">Therapy</option>
-                      <option value="custom">Custom</option>
-                    </select>
-                  </div>
-                  
-                  <div className="flex gap-4">
-                    <div className="flex-1">
-                      <label className="block text-sm font-medium text-slate-400 mb-1">Day</label>
-                      <select 
-                        className="w-full bg-slate-900 border border-slate-700 rounded-md py-2 px-3 text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
-                        value={newActivity.dayOfWeek}
-                        onChange={(e) => setNewActivity({...newActivity, dayOfWeek: parseInt(e.target.value)})}
-                      >
-                        {days.map((day, index) => (
-                          <option key={index} value={index}>{day}</option>
-                        ))}
-                      </select>
-                    </div>
-                    
-                    <div className="flex-1">
-                      <label className="block text-sm font-medium text-slate-400 mb-1">Recurring</label>
-                      <div className="flex items-center mt-3">
-                        <input 
-                          type="checkbox" 
-                          id="recurring"
-                          className="h-4 w-4 rounded border-slate-700 text-blue-600 focus:ring-blue-600"
-                          checked={newActivity.isRecurring}
-                          onChange={(e) => setNewActivity({...newActivity, isRecurring: e.target.checked})}
-                        />
-                        <label htmlFor="recurring" className="ml-2 text-sm text-slate-300">Weekly</label>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <div className="flex gap-4">
-                    <div className="flex-1">
-                      <label className="block text-sm font-medium text-slate-400 mb-1">Start Time</label>
-                      <input 
-                        type="time"
-                        className="w-full bg-slate-900 border border-slate-700 rounded-md py-2 px-3 text-white focus:outline-none focus:ring-1 focus:ring-blue-500 dark-time-picker"
-                        value={newActivity.startTime}
-                        onChange={(e) => setNewActivity({...newActivity, startTime: e.target.value})}
-                        />
-                    </div>
-                    
-                    <div className="flex-1">
-                      <label className="block text-sm font-medium text-slate-400 mb-1">Duration (minutes)</label>
-                      <input 
-                        type="number"
-                        min="5"
-                        max="240"
-                        step="5"
-                        className="w-full bg-slate-900 border border-slate-700 rounded-md py-2 px-3 text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
-                        value={newActivity.duration}
-                        onChange={(e) => setNewActivity({...newActivity, duration: parseInt(e.target.value)})}
-                      />
-                    </div>
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-slate-400 mb-1">Notes</label>
-                    <textarea 
-                      className="w-full bg-slate-900 border border-slate-700 rounded-md py-2 px-3 text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
-                      rows={3}
-                      value={newActivity.notes}
-                      onChange={(e) => setNewActivity({...newActivity, notes: e.target.value})}
-                    ></textarea>
+                    <label className="block text-slate-300 text-sm font-medium mb-2">
+                      End Time *
+                    </label>
+                    <input
+                      type="time"
+                      value={currentActivity?.endTime || '10:00'}
+                      onChange={(e) => setCurrentActivity(prev => ({ ...prev!, endTime: e.target.value }))}
+                      className="w-full bg-slate-900/70 border border-slate-700 rounded-md py-2.5 px-4 text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                      required
+                    />
                   </div>
                 </div>
                 
-                <div className="flex justify-end mt-6 space-x-2">
-                  <button 
-                    className="px-4 py-2 border border-slate-600 text-slate-300 rounded-md hover:bg-slate-700"
-                    onClick={() => {
-                      setIsModalOpen(false);
-                      setEditingActivity(null);
-                      setNewActivity({
-                        title: '',
-                        category: 'custom',
-                        startTime: '',
-                        duration: 30,
-                        dayOfWeek: 0,
-                        color: 'bg-blue-900/20',
-                        isRecurring: false,
-                        notes: ''
-                      });
-                    }}
+                <div className="flex justify-end gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setIsFormOpen(false)}
+                    className="px-4 py-2.5 border border-slate-600 text-slate-300 rounded-md hover:bg-slate-700 transition-colors"
                   >
                     Cancel
                   </button>
-                  <button 
-                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md flex items-center"
-                    onClick={editingActivity ? handleUpdateActivity : handleAddActivity}
+                  <button
+                    type="submit"
+                    className="px-4 py-2.5 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
                   >
-                    {editingActivity ? (
-                      <>
-                        <Edit className="h-4 w-4 mr-1" />
-                        Update Activity
-                      </>
-                    ) : (
-                      <>
-                        <Plus className="h-4 w-4 mr-1" />
-                        Add Activity
-                      </>
-                    )}
+                    {isEditing ? 'Update' : 'Add'} Activity
                   </button>
                 </div>
-              </div>
+              </form>
             </div>
-          )}
-        </main>
+          </div>
+        )}
       </div>
-    </DndProvider>
+    </div>
   );
 }
