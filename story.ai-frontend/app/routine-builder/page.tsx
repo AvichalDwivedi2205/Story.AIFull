@@ -6,8 +6,6 @@ import { useAuth } from '@/context/AuthContext';
 import { collection, addDoc, updateDoc, deleteDoc, getDocs, doc, query, where, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/config/firebase';
 import { useRouter } from 'next/navigation';
-
-// Define types for our timetable activities
 interface Activity {
   id: string;
   title: string;
@@ -394,7 +392,6 @@ export default function WeeklyTimetable() {
                     <option key={day} value={day}>{day}</option>
                   ))}
                 </select>
-                <ChevronDown className="absolute right-2 top-2.5 h-4 w-4 text-slate-400 pointer-events-none" />
               </div>
               
               <div className="relative">
@@ -410,7 +407,6 @@ export default function WeeklyTimetable() {
                   <option value="Therapy">Therapy</option>
                   <option value="Custom">Custom</option>
                 </select>
-                <Filter className="absolute right-2 top-2.5 h-4 w-4 text-slate-400 pointer-events-none" />
               </div>
             </div>
             

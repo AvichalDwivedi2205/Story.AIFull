@@ -4,7 +4,6 @@ import { onAuthStateChanged, User } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
 import { auth, db } from '@/config/firebase';
 
-// Define types for our context
 interface UserData {
   username?: string;
   firstName?: string;
@@ -13,7 +12,7 @@ interface UserData {
   createdAt?: string;
   authProvider?: string;
   photoURL?: string;
-  [key: string]: any; // Allow for additional fields
+  [key: string]: any;
 }
 
 interface AuthContextType {
@@ -23,7 +22,6 @@ interface AuthContextType {
   isAuthenticated: boolean;
 }
 
-// Create context with default values
 const AuthContext = createContext<AuthContextType>({
   currentUser: null,
   userData: null,
