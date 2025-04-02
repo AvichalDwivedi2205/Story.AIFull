@@ -66,9 +66,9 @@ export default function SelfAssessment() {
     ];
 
     // Update test statuses based on userData if available
-    if (userData && userData.assessment) {
+    if (userData && userData.assessments) {
       const updatedTestData = initialTestData.map(test => {
-        const assessmentData = userData.assessment[test.id];
+        const assessmentData = userData.assessments[test.id];
         if (assessmentData) {
           const completionDate = assessmentData.time?.toDate 
             ? format(assessmentData.time.toDate(), 'MMMM dd, yyyy')

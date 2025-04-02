@@ -26,13 +26,11 @@ export async function saveAssessmentResult(
   try {
     const userRef = doc(db, "users", userId);
     
-    // Create the assessment data structure with timestamp
+    // Use dot notation to update only the specific assessment type
     const assessmentData = {
-      assessment: {
-        [assessmentType]: {
-          ...data,
-          time: serverTimestamp()
-        }
+      [`assessments.${assessmentType}`]: {
+        ...data,
+        time: serverTimestamp()
       }
     };
     
