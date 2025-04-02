@@ -2,7 +2,7 @@
 "use client"
 import React, { useState, useEffect } from 'react';
 import Navbar from '@/components/Navbar';
-import { ArrowRight, BarChart, Clock, CheckCircle, CircleSlash, Loader2 } from 'lucide-react';
+import { ArrowRight, ArrowLeft, BarChart, Clock, CheckCircle, CircleSlash, Loader2 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { saveAssessmentResult } from '@/config/firebase';
 import { stressQuestions, calculateStressScore, StressResult } from '@/questionairres/stress';
@@ -123,6 +123,27 @@ export default function SelfAssessment() {
     }
   };
 
+  // Handle going to the previous question
+  const handlePreviousQuestion = () => {
+    if (currentQuestionIndex > 0) {
+      setCurrentQuestionIndex(currentQuestionIndex - 1);
+    }
+  };
+  
+  // Handle jumping to a specific question
+  const handleJumpToQuestion = (index: number) => {
+    if (index >= 0 && index < (selectedTest?.questions?.length || 0)) {
+      setCurrentQuestionIndex(index);
+    }
+  };
+  
+  // Check if a specific question has been answered
+  const isQuestionAnswered = (index: number) => {
+    if (!selectedTest || !selectedTest.questions) return false;
+    const questionId = selectedTest.questions[index].id;
+    return answers[questionId] !== undefined;
+  };
+
   // Calculate and save test results
   const calculateAndSaveResults = async () => {
     if (!selectedTest || !currentUser) return;
@@ -221,6 +242,39 @@ export default function SelfAssessment() {
         {option.label}
       </div>
     ));
+  };
+
+  // Render question navigation bar
+  const renderQuestionNavigation = () => {
+    if (!selectedTest || !selectedTest.questions) return null;
+    
+    // For tests with many questions, we'll use a more compact UI
+    const isLongTest = selectedTest.questions.length > 15;
+    
+    return (
+      <div className="mb-6 overflow-x-auto">
+        <div className={`flex ${isLongTest ? 'space-x-1' : 'space-x-2'} py-2`}>
+          {selectedTest.questions.map((_, index) => (
+            <button
+              key={index}
+              onClick={() => handleJumpToQuestion(index)}
+              className={`
+                ${isLongTest ? 'w-8 h-8' : 'w-10 h-10'} 
+                flex items-center justify-center rounded-full text-sm font-medium transition-colors
+                ${currentQuestionIndex === index 
+                  ? 'bg-blue-600 text-white' 
+                  : isQuestionAnswered(index)
+                    ? 'bg-blue-600/20 text-blue-400 hover:bg-blue-600/30' 
+                    : 'bg-slate-700 text-slate-400 hover:bg-slate-600'}
+              `}
+              aria-label={`Go to question ${index + 1}`}
+            >
+              {index + 1}
+            </button>
+          ))}
+        </div>
+      </div>
+    );
   };
 
   // Render test results based on test type
@@ -431,7 +485,7 @@ export default function SelfAssessment() {
         {testView === 'taking' && selectedTest && selectedTest.questions && (
           <div className="max-w-2xl mx-auto">
             {/* Test Header */}
-            <div className="mb-8">
+            <div className="mb-4">
               <button 
                 onClick={handleBackToTests}
                 className="text-slate-400 hover:text-white mb-4 inline-flex items-center"
@@ -452,6 +506,9 @@ export default function SelfAssessment() {
               </div>
             </div>
             
+            {/* Question Navigation */}
+            {renderQuestionNavigation()}
+            
             {/* Current Question */}
             <div className="bg-slate-800/70 rounded-lg border border-slate-700 p-6">
               <h2 className="text-xl font-medium text-white mb-6">
@@ -462,7 +519,22 @@ export default function SelfAssessment() {
                 {renderOptions(selectedTest.questions[currentQuestionIndex])}
               </div>
               
-              <div className="mt-8 flex justify-end">
+              <div className="mt-8 flex justify-between">
+                {/* Previous button */}
+                <button
+                  onClick={handlePreviousQuestion}
+                  disabled={currentQuestionIndex === 0}
+                  className={`inline-flex items-center px-6 py-3 rounded-md text-white font-medium ${
+                    currentQuestionIndex === 0
+                      ? 'bg-slate-700 cursor-not-allowed opacity-50'
+                      : 'bg-slate-600 hover:bg-slate-500'
+                  }`}
+                >
+                  <ArrowLeft className="mr-2 h-5 w-5" />
+                  Previous
+                </button>
+                
+                {/* Next/Complete button */}
                 <button
                   onClick={handleNextQuestion}
                   disabled={answers[selectedTest.questions[currentQuestionIndex].id] === undefined || isSubmitting}
@@ -479,7 +551,7 @@ export default function SelfAssessment() {
                     </>
                   ) : currentQuestionIndex < selectedTest.questions.length - 1 ? (
                     <>
-                      Next Question
+                      Next
                       <ArrowRight className="ml-2 h-5 w-5" />
                     </>
                   ) : (
@@ -490,6 +562,41 @@ export default function SelfAssessment() {
                   )}
                 </button>
               </div>
+            </div>
+            
+            {/* Question Progress Summary */}
+            <div className="mt-6 p-4 bg-slate-800/50 rounded-lg border border-slate-700">
+              <div className="flex items-center justify-between">
+                <div>
+                  <span className="text-slate-400">Questions Answered: </span>
+                  <span className="font-bold text-white">
+                    {Object.keys(answers).length} / {selectedTest.questions.length}
+                  </span>
+                </div>
+                
+                {currentQuestionIndex === selectedTest.questions.length - 1 && 
+                 Object.keys(answers).length === selectedTest.questions.length && (
+                  <button
+                    onClick={calculateAndSaveResults}
+                    disabled={isSubmitting}
+                    className="inline-flex items-center px-4 py-2 bg-green-600 hover:bg-green-700 rounded-md text-white text-sm font-medium"
+                  >
+                    {isSubmitting ? (
+                      <>
+                        <Loader2 className="mr-2 h-3 w-3 animate-spin" />
+                        Processing...
+                      </>
+                    ) : (
+                      <>Submit Answers</>
+                    )}
+                  </button>
+                )}
+              </div>
+            </div>
+            
+            {/* Hint for navigation */}
+            <div className="mt-4 text-center text-xs text-slate-400">
+              You can click on any question number above to navigate directly to that question
             </div>
           </div>
         )}
