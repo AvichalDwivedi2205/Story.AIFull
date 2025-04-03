@@ -14,7 +14,7 @@ interface Activity {
   title: string;
   description: string;
   category: 'Journal' | 'Exercise' | 'Challenge' | 'Therapy' | 'Custom' | 'Sleep' | 'Rest';
-  day: string | string[]; // Updated to support multiple days
+  day: string | string[]; 
   startTime: string;
   endTime: string;
   completed: boolean;
@@ -110,7 +110,8 @@ const ActivityItem = ({
   moveActivity, 
   editActivity, 
   deleteActivity, 
-  toggleActivityCompletion 
+  toggleActivityCompletion,
+  setIsSleepPromptOpen
 }: {
   activity: Activity;
   index: number;
@@ -118,6 +119,7 @@ const ActivityItem = ({
   editActivity: (activity: Activity) => void;
   deleteActivity: (activityId: string) => void;
   toggleActivityCompletion: (activityId: string, currentStatus: boolean) => void;
+  setIsSleepPromptOpen: (isOpen: boolean) => void;
 }) => {
   const ref = useRef(null);
   
@@ -163,6 +165,8 @@ const ActivityItem = ({
     } else {
       return `${hour}:${minutes || '00'} AM`;
     }
+  // Function is now passed as a prop
+    throw new Error('Function not implemented.');
   }
 
   return (
@@ -194,28 +198,41 @@ const ActivityItem = ({
         </div>
         
         <div className="flex gap-1">
-          <button 
-            onClick={() => toggleActivityCompletion(activity.id, activity.completed)}
-            className={`p-1.5 rounded-md transition-colors ${
-              activity.completed 
-                ? 'bg-green-700/20 text-green-400 hover:bg-green-700/30' 
-                : 'bg-slate-700/20 text-slate-400 hover:bg-slate-700/30'
-            }`}
-          >
-            <Check className="h-4 w-4" />
-          </button>
-          <button 
-            onClick={() => editActivity(activity)}
-            className="p-1.5 rounded-md bg-slate-700/20 text-slate-400 hover:bg-slate-700/30 transition-colors"
-          >
-            <Edit className="h-4 w-4" />
-          </button>
-          <button 
-            onClick={() => deleteActivity(activity.id)}
-            className="p-1.5 rounded-md bg-red-900/20 text-red-400 hover:bg-red-900/30 transition-colors"
-          >
-            <Trash2 className="h-4 w-4" />
-          </button>
+          {!activity.isSleepActivity && (
+            <>
+              <button 
+                onClick={() => toggleActivityCompletion(activity.id, activity.completed)}
+                className={`p-1.5 rounded-md transition-colors ${
+                  activity.completed 
+                    ? 'bg-green-700/20 text-green-400 hover:bg-green-700/30' 
+                    : 'bg-slate-700/20 text-slate-400 hover:bg-slate-700/30'
+                }`}
+              >
+                <Check className="h-4 w-4" />
+              </button>
+              <button 
+                onClick={() => editActivity(activity)}
+                className="p-1.5 rounded-md bg-slate-700/20 text-slate-400 hover:bg-slate-700/30 transition-colors"
+              >
+                <Edit className="h-4 w-4" />
+              </button>
+              <button 
+                onClick={() => deleteActivity(activity.id)}
+                className="p-1.5 rounded-md bg-red-900/20 text-red-400 hover:bg-red-900/30 transition-colors"
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
+            </>
+          )}
+          
+          {activity.isSleepActivity && activity.category === 'Sleep' && (
+            <button 
+              onClick={() => setIsSleepPromptOpen(true)}
+              className="p-1.5 rounded-md bg-blue-900/20 text-blue-400 hover:bg-blue-900/30 transition-colors"
+            >
+              <Edit className="h-4 w-4" />
+            </button>
+          )}
         </div>
       </div>
     </div>
@@ -235,8 +252,10 @@ export default function WeeklyTimetable() {
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [selectedTimeSlot, setSelectedTimeSlot] = useState<{day: string, startTime: string} | null>(null);
-  const [sleepSchedule, setSleepSchedule] = useState<{wakeUpTime: string, sleepTime: string} | null>(null);
+  const [sleepSchedule, setSleepSchedule] = useState<{wakeUpTime: string | Record<string, string>, sleepTime: string | Record<string, string>, isFlexible: boolean} | null>(null);
   const [isSleepPromptOpen, setIsSleepPromptOpen] = useState(false);
+  const [isFlexibleSleepSchedule, setIsFlexibleSleepSchedule] = useState(false);
+  const [morningReflectionTime, setMorningReflectionTime] = useState(30); // Default 30 minutes after wakeup
   const [selectedDays, setSelectedDays] = useState<string[]>([]);
   
   const formRef = useRef<HTMLDivElement>(null);
@@ -280,12 +299,68 @@ export default function WeeklyTimetable() {
         const sleepActivities = fetchedActivities.filter(a => a.isSleepActivity && a.category === 'Sleep');
         
         if (sleepActivities.length > 0) {
-          // Use the first sleep activity to determine sleep schedule
-          const sleepActivity = sleepActivities[0];
-          setSleepSchedule({
-            sleepTime: sleepActivity.startTime,
-            wakeUpTime: sleepActivity.endTime
-          });
+          // Check if we have a flexible schedule (different times per day)
+          const uniqueDays = new Set(sleepActivities.map(a => typeof a.day === 'string' ? a.day : a.day[0]));
+          
+          if (uniqueDays.size === daysOfWeek.length) {
+            // We have a flexible schedule with unique entries for each day
+            const isFlexible = sleepActivities.some(a1 => 
+              sleepActivities.some(a2 => 
+                a1.id !== a2.id && (a1.startTime !== a2.startTime || a1.endTime !== a2.endTime)
+              )
+            );
+            
+            if (isFlexible) {
+              // Flexible schedule
+              const wakeUpTimes: Record<string, string> = {};
+              const sleepTimes: Record<string, string> = {};
+              
+              sleepActivities.forEach(activity => {
+                const day = typeof activity.day === 'string' ? activity.day : activity.day[0];
+                sleepTimes[day] = activity.startTime;
+                wakeUpTimes[day] = activity.endTime;
+              });
+              
+              setSleepSchedule({
+                sleepTime: sleepTimes,
+                wakeUpTime: wakeUpTimes,
+                isFlexible: true
+              });
+              
+              setIsFlexibleSleepSchedule(true);
+            } else {
+              // Regular schedule (same times for all days)
+              const firstActivity = sleepActivities[0];
+              setSleepSchedule({
+                sleepTime: firstActivity.startTime,
+                wakeUpTime: firstActivity.endTime,
+                isFlexible: false
+              });
+              setIsFlexibleSleepSchedule(false);
+            }
+            
+            // Find auto-scheduled morning reflections to determine timing preference
+            const morningReflections = fetchedActivities.filter(
+              a => a.isAutoScheduled && a.title === 'Morning Reflection'
+            );
+            
+            if (morningReflections.length > 0) {
+              const reflection = morningReflections[0];
+              const wakeUpTime = typeof sleepSchedule?.wakeUpTime === 'string' 
+                ? sleepSchedule?.wakeUpTime 
+                : Object.values(sleepSchedule?.wakeUpTime || {})[0];
+              
+              if (wakeUpTime) {
+                const wakeUpMinutes = convertTimeToMinutes(wakeUpTime);
+                const reflectionMinutes = convertTimeToMinutes(reflection.startTime);
+                const minutesAfterWakeUp = reflectionMinutes - wakeUpMinutes;
+                
+                if (minutesAfterWakeUp > 0) {
+                  setMorningReflectionTime(minutesAfterWakeUp);
+                }
+              }
+            }
+          }
         } else {
           // If no sleep activities are found, prompt user to set sleep schedule
           setIsSleepPromptOpen(true);
@@ -327,76 +402,211 @@ export default function WeeklyTimetable() {
       try {
         // Check if auto-scheduled activities already exist
         const existingAutoScheduled = activities.filter(a => a.isAutoScheduled);
-        if (existingAutoScheduled.length > 0) return;
-        
-        // Calculate times based on sleep schedule
-        const wakeUpHour = parseInt(sleepSchedule.wakeUpTime.split(':')[0]);
-        const wakeUpMinutes = parseInt(sleepSchedule.wakeUpTime.split(':')[1]);
-        
-        const sleepHour = parseInt(sleepSchedule.sleepTime.split(':')[0]);
-        const sleepMinutes = parseInt(sleepSchedule.sleepTime.split(':')[1]);
-        
-        // 30 minutes after wake up
-        const morningHour = wakeUpHour;
-        const morningMinutes = wakeUpMinutes + 30;
-        let adjustedMorningHour = morningHour;
-        let adjustedMorningMinutes = morningMinutes;
-        
-        if (morningMinutes >= 60) {
-          adjustedMorningHour = morningHour + Math.floor(morningMinutes / 60);
-          adjustedMorningMinutes = morningMinutes % 60;
+        if (existingAutoScheduled.length > 0) {
+          // Delete existing auto-scheduled activities
+          for (const activity of existingAutoScheduled) {
+            await deleteDoc(doc(db, "timetable", activity.id));
+          }
+          
+          // Remove from local state
+          setActivities(prev => prev.filter(a => !a.isAutoScheduled));
         }
         
-        // 45 minutes before sleep
-        let eveningHour = sleepHour;
-        let eveningMinutes = sleepMinutes - 45;
+        const newAutoScheduledActivities: Activity[] = [];
         
-        if (eveningMinutes < 0) {
-          eveningHour = eveningHour - 1 + Math.floor(eveningMinutes / 60);
-          eveningMinutes = (eveningMinutes % 60 + 60) % 60;
+        // Handle different sleep schedule types
+        if (sleepSchedule.isFlexible) {
+          // Flexible schedule - create activities for each day
+          const sleepTimes = sleepSchedule.sleepTime as Record<string, string>;
+          const wakeUpTimes = sleepSchedule.wakeUpTime as Record<string, string>;
+          
+          for (const day of daysOfWeek) {
+            if (sleepTimes[day] && wakeUpTimes[day]) {
+              // Calculate relaxation time (15 mins before sleep)
+              const sleepHour = parseInt(sleepTimes[day].split(':')[0]);
+              const sleepMinutes = parseInt(sleepTimes[day].split(':')[1]);
+              
+              let relaxationHour = sleepHour;
+              let relaxationMinutes = sleepMinutes - 15;
+              
+              if (relaxationMinutes < 0) {
+                relaxationHour = (relaxationHour - 1 + 24) % 24;
+                relaxationMinutes = 60 + relaxationMinutes;
+              }
+              
+              const relaxationStartTime = `${String(relaxationHour).padStart(2, '0')}:${String(relaxationMinutes).padStart(2, '0')}`;
+              
+              // Calculate relaxation end time (12 minutes duration)
+              let relaxationEndHour = relaxationHour;
+              let relaxationEndMinutes = relaxationMinutes + 12;
+              
+              if (relaxationEndMinutes >= 60) {
+                relaxationEndHour = (relaxationEndHour + 1) % 24;
+                relaxationEndMinutes = relaxationEndMinutes % 60;
+              }
+              
+              const relaxationEndTime = `${String(relaxationEndHour).padStart(2, '0')}:${String(relaxationEndMinutes).padStart(2, '0')}`;
+              
+              // Create evening relaxation activity
+              const eveningExercise = {
+                title: 'Relaxation Technique',
+                description: 'Progressive muscle relaxation to release physical tension before sleep.',
+                category: 'Therapy' as const,
+                day: day,
+                startTime: relaxationStartTime,
+                endTime: relaxationEndTime,
+                completed: false,
+                userId: currentUser.uid,
+                isAutoScheduled: true,
+                createdAt: serverTimestamp()
+              };
+              
+              // Calculate morning reflection time
+              const wakeUpHour = parseInt(wakeUpTimes[day].split(':')[0]);
+              const wakeUpMinute = parseInt(wakeUpTimes[day].split(':')[1]);
+              
+              let morningHour = wakeUpHour;
+              let morningMinute = wakeUpMinute + morningReflectionTime;
+              
+              if (morningMinute >= 60) {
+                morningHour = (morningHour + Math.floor(morningMinute / 60)) % 24;
+                morningMinute = morningMinute % 60;
+              }
+              
+              const morningTime = `${String(morningHour).padStart(2, '0')}:${String(morningMinute).padStart(2, '0')}`;
+              
+              // End time (5 minutes later)
+              let morningEndHour = morningHour;
+              let morningEndMinute = morningMinute + 5;
+              
+              if (morningEndMinute >= 60) {
+                morningEndHour = (morningEndHour + 1) % 24;
+                morningEndMinute = morningEndMinute % 60;
+              }
+              
+              const morningEndTime = `${String(morningEndHour).padStart(2, '0')}:${String(morningEndMinute).padStart(2, '0')}`;
+              
+              // Create Morning Reflection exercise
+              const morningExercise = {
+                title: 'Morning Reflection',
+                description: 'Reflect on how you feel and set intentions for the day.',
+                category: 'Journal' as const,
+                day: day,
+                startTime: morningTime,
+                endTime: morningEndTime,
+                completed: false,
+                userId: currentUser.uid,
+                isAutoScheduled: true,
+                createdAt: serverTimestamp()
+              };
+              
+              // Add to Firestore
+              const eveningRef = await addDoc(collection(db, "timetable"), eveningExercise);
+              const morningRef = await addDoc(collection(db, "timetable"), morningExercise);
+              
+              // Add to local collection for state update
+              newAutoScheduledActivities.push(
+                { ...eveningExercise, id: eveningRef.id },
+                { ...morningExercise, id: morningRef.id }
+              );
+            }
+          }
+        } else {
+          // Regular schedule - same times for all days
+          const sleepTime = sleepSchedule.sleepTime as string;
+          const wakeUpTime = sleepSchedule.wakeUpTime as string;
+          
+          // Calculate relaxation time (15 mins before sleep)
+          const sleepHour = parseInt(sleepTime.split(':')[0]);
+          const sleepMinutes = parseInt(sleepTime.split(':')[1]);
+          
+          let relaxationHour = sleepHour;
+          let relaxationMinutes = sleepMinutes - 15;
+          
+          if (relaxationMinutes < 0) {
+            relaxationHour = (relaxationHour - 1 + 24) % 24;
+            relaxationMinutes = 60 + relaxationMinutes;
+          }
+          
+          const relaxationStartTime = `${String(relaxationHour).padStart(2, '0')}:${String(relaxationMinutes).padStart(2, '0')}`;
+          
+          // Calculate relaxation end time (12 minutes duration)
+          let relaxationEndHour = relaxationHour;
+          let relaxationEndMinutes = relaxationMinutes + 12;
+          
+          if (relaxationEndMinutes >= 60) {
+            relaxationEndHour = (relaxationEndHour + 1) % 24;
+            relaxationEndMinutes = relaxationEndMinutes % 60;
+          }
+          
+          const relaxationEndTime = `${String(relaxationEndHour).padStart(2, '0')}:${String(relaxationEndMinutes).padStart(2, '0')}`;
+          
+          // Create evening relaxation activity
+          const eveningExercise = {
+            title: 'Relaxation Technique',
+            description: 'Progressive muscle relaxation to release physical tension before sleep.',
+            category: 'Therapy' as const,
+            day: daysOfWeek, // All days
+            startTime: relaxationStartTime,
+            endTime: relaxationEndTime,
+            completed: false,
+            userId: currentUser.uid,
+            isAutoScheduled: true,
+            createdAt: serverTimestamp()
+          };
+          
+          // Calculate morning reflection time
+          const wakeUpHour = parseInt(wakeUpTime.split(':')[0]);
+          const wakeUpMinute = parseInt(wakeUpTime.split(':')[1]);
+          
+          let morningHour = wakeUpHour;
+          let morningMinute = wakeUpMinute + morningReflectionTime;
+          
+          if (morningMinute >= 60) {
+            morningHour = (morningHour + Math.floor(morningMinute / 60)) % 24;
+            morningMinute = morningMinute % 60;
+          }
+          
+          const morningTime = `${String(morningHour).padStart(2, '0')}:${String(morningMinute).padStart(2, '0')}`;
+          
+          // End time (5 minutes later)
+          let morningEndHour = morningHour;
+          let morningEndMinute = morningMinute + 5;
+          
+          if (morningEndMinute >= 60) {
+            morningEndHour = (morningEndHour + 1) % 24;
+            morningEndMinute = morningEndMinute % 60;
+          }
+          
+          const morningEndTime = `${String(morningEndHour).padStart(2, '0')}:${String(morningEndMinute).padStart(2, '0')}`;
+          
+          // Create Morning Reflection exercise
+          const morningExercise = {
+            title: 'Morning Reflection',
+            description: 'Reflect on how you feel and set intentions for the day.',
+            category: 'Journal' as const,
+            day: daysOfWeek, // All days
+            startTime: morningTime,
+            endTime: morningEndTime,
+            completed: false,
+            userId: currentUser.uid,
+            isAutoScheduled: true,
+            createdAt: serverTimestamp()
+          };
+          
+          // Add to Firestore
+          const eveningRef = await addDoc(collection(db, "timetable"), eveningExercise);
+          const morningRef = await addDoc(collection(db, "timetable"), morningExercise);
+          
+          // Add to local collection for state update
+          newAutoScheduledActivities.push(
+            { ...eveningExercise, id: eveningRef.id },
+            { ...morningExercise, id: morningRef.id }
+          );
         }
         
-        const morningTime = `${String(adjustedMorningHour).padStart(2, '0')}:${String(adjustedMorningMinutes).padStart(2, '0')}`;
-        const eveningTime = `${String(eveningHour).padStart(2, '0')}:${String(eveningMinutes).padStart(2, '0')}`;
-        
-        // Create Morning Reflection exercise
-        const morningExercise = {
-          title: 'Morning Reflection',
-          description: 'Reflect on how you feel and set intentions for the day.',
-          category: 'Journal' as const,
-          day: daysOfWeek, // All days
-          startTime: morningTime,
-          endTime: `${String(adjustedMorningHour).padStart(2, '0')}:${String(adjustedMorningMinutes + 5).padStart(2, '0')}`,
-          completed: false,
-          userId: currentUser.uid,
-          isAutoScheduled: true,
-          createdAt: serverTimestamp()
-        };
-        
-        // Create Relaxation Technique exercise
-        const eveningExercise = {
-          title: 'Relaxation Technique',
-          description: 'Progressive muscle relaxation to release physical tension before sleep.',
-          category: 'Therapy' as const,
-          day: daysOfWeek, // All days
-          startTime: eveningTime,
-          endTime: `${String(eveningHour).padStart(2, '0')}:${String(eveningMinutes + 8).padStart(2, '0')}`,
-          completed: false,
-          userId: currentUser.uid,
-          isAutoScheduled: true,
-          createdAt: serverTimestamp()
-        };
-        
-        // Add to Firestore
-        const morningRef = await addDoc(collection(db, "timetable"), morningExercise);
-        const eveningRef = await addDoc(collection(db, "timetable"), eveningExercise);
-        
-        // Add to local state
-        setActivities(prev => [
-          ...prev, 
-          { ...morningExercise, id: morningRef.id }, 
-          { ...eveningExercise, id: eveningRef.id }
-        ]);
+        // Update state with new auto-scheduled activities
+        setActivities(prev => [...prev, ...newAutoScheduledActivities]);
         
         setSuccessMessage("Auto-scheduled activities based on your sleep schedule");
         setTimeout(() => setSuccessMessage(null), 3000);
@@ -406,7 +616,7 @@ export default function WeeklyTimetable() {
     };
     
     scheduleSpecificExercises();
-  }, [sleepSchedule, currentUser, activities]);
+  }, [sleepSchedule, currentUser, morningReflectionTime]);
 
   // Check if a new activity time overlaps with existing activities
   const checkActivityOverlap = (day: string | string[], startTime: string, endTime: string, activityId?: string): boolean => {
@@ -517,8 +727,8 @@ export default function WeeklyTimetable() {
     }
   };
 
-  // Save sleep schedule - Updated to create activities in the timetable collection
-  const saveSleepSchedule = async (wakeUpTime: string, sleepTime: string) => {
+  // Save sleep schedule - Updated to support flexible schedules
+  const saveSleepSchedule = async (wakeUpTime: string | Record<string, string>, sleepTime: string | Record<string, string>, isFlexible: boolean) => {
     if (!currentUser) return;
     
     try {
@@ -535,37 +745,84 @@ export default function WeeklyTimetable() {
         setActivities(prev => prev.filter(a => !a.isSleepActivity));
       }
       
-      // Create sleep activity for each day of the week
-      const sleepStartMinutes = convertTimeToMinutes(sleepTime);
-      const wakeUpMinutes = convertTimeToMinutes(wakeUpTime);
-      const isSleepSpanningDays = sleepStartMinutes > wakeUpMinutes;
+      const newSleepActivities: Activity[] = [];
       
-      // Create sleep activities for all days of the week
-      for (const day of daysOfWeek) {
-        // For each day, create a sleep activity
-        const nextDay = daysOfWeek[(daysOfWeek.indexOf(day) + 1) % 7];
+      if (isFlexible) {
+        // Create sleep activities for each day with different times
+        const flexibleSleepTimes = sleepTime as Record<string, string>;
+        const flexibleWakeUpTimes = wakeUpTime as Record<string, string>;
         
-        const sleepActivity = {
-          title: `Sleep (${formatTime(sleepTime)} - ${formatTime(wakeUpTime)})`,
-          description: 'Regular sleep schedule',
-          category: 'Sleep' as const,
-          day: isSleepSpanningDays ? [day, nextDay] : day, // If sleep spans across days, include both days
-          startTime: sleepTime,
-          endTime: wakeUpTime,
-          completed: false,
-          userId: currentUser.uid,
-          isSleepActivity: true,
-          createdAt: serverTimestamp()
-        };
+        for (const day of daysOfWeek) {
+          if (flexibleSleepTimes[day] && flexibleWakeUpTimes[day]) {
+            const sleepStartMinutes = convertTimeToMinutes(flexibleSleepTimes[day]);
+            const wakeUpMinutes = convertTimeToMinutes(flexibleWakeUpTimes[day]);
+            const isSleepSpanningDays = sleepStartMinutes > wakeUpMinutes;
+            
+            // For each day, create a sleep activity
+            const nextDay = daysOfWeek[(daysOfWeek.indexOf(day) + 1) % 7];
+            
+            const sleepActivity = {
+              title: `Sleep (${formatTime(flexibleSleepTimes[day])} - ${formatTime(flexibleWakeUpTimes[day])})`,
+              description: `${day} sleep schedule`,
+              category: 'Sleep' as const,
+              day: isSleepSpanningDays ? [day, nextDay] : day,
+              startTime: flexibleSleepTimes[day],
+              endTime: flexibleWakeUpTimes[day],
+              completed: false,
+              userId: currentUser.uid,
+              isSleepActivity: true,
+              createdAt: serverTimestamp()
+            };
+            
+            // Add to Firestore
+            const docRef = await addDoc(collection(db, "timetable"), sleepActivity);
+            
+            // Add to local collection
+            newSleepActivities.push({ ...sleepActivity, id: docRef.id });
+          }
+        }
+      } else {
+        // Create identical sleep activities for all days
+        const regularSleepTime = sleepTime as string;
+        const regularWakeUpTime = wakeUpTime as string;
         
-        // Add to Firestore
-        const docRef = await addDoc(collection(db, "timetable"), sleepActivity);
+        // Calculate if sleep spans across days
+        const sleepStartMinutes = convertTimeToMinutes(regularSleepTime);
+        const wakeUpMinutes = convertTimeToMinutes(regularWakeUpTime);
+        const isSleepSpanningDays = sleepStartMinutes > wakeUpMinutes;
         
-        // Add to local state
-        setActivities(prev => [...prev, { ...sleepActivity, id: docRef.id }]);
+        // Create sleep activities for all days of the week
+        for (const day of daysOfWeek) {
+          // For each day, create a sleep activity
+          const nextDay = daysOfWeek[(daysOfWeek.indexOf(day) + 1) % 7];
+          
+          const sleepActivity = {
+            title: `Sleep (${formatTime(regularSleepTime)} - ${formatTime(regularWakeUpTime)})`,
+            description: 'Regular sleep schedule',
+            category: 'Sleep' as const,
+            day: isSleepSpanningDays ? [day, nextDay] : day, // If sleep spans across days, include both days
+            startTime: regularSleepTime,
+            endTime: regularWakeUpTime,
+            completed: false,
+            userId: currentUser.uid,
+            isSleepActivity: true,
+            createdAt: serverTimestamp()
+          };
+          
+          // Add to Firestore
+          const docRef = await addDoc(collection(db, "timetable"), sleepActivity);
+          
+          // Add to local collection
+          newSleepActivities.push({ ...sleepActivity, id: docRef.id });
+        }
       }
       
-      setSleepSchedule({ wakeUpTime, sleepTime });
+      // Add all new sleep activities to state
+      setActivities(prev => [...prev, ...newSleepActivities]);
+      
+      // Update sleep schedule state
+      setSleepSchedule({ wakeUpTime, sleepTime, isFlexible });
+      setIsFlexibleSleepSchedule(isFlexible);
       setIsSleepPromptOpen(false);
       setSuccessMessage("Sleep schedule saved successfully");
       setTimeout(() => setSuccessMessage(null), 3000);
@@ -991,6 +1248,7 @@ export default function WeeklyTimetable() {
                             editActivity={editActivity}
                             deleteActivity={deleteActivity}
                             toggleActivityCompletion={toggleActivityCompletion}
+                            setIsSleepPromptOpen={setIsSleepPromptOpen}
                           />
                         ))}
                     </div>
@@ -1009,55 +1267,201 @@ export default function WeeklyTimetable() {
           {/* Sleep Schedule Prompt Modal */}
           {isSleepPromptOpen && (
             <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-              <div className="bg-slate-800 border border-slate-700 rounded-xl p-6 w-full max-w-md animate-fadeIn">
+              <div className="bg-slate-800 border border-slate-700 rounded-xl p-6 w-full max-w-2xl animate-fadeIn">
                 <h2 className="text-xl font-bold text-white mb-2">Set Your Sleep Schedule</h2>
                 <p className="text-slate-400 mb-5">
-                  To optimize your routine, please provide your regular sleep schedule. This will be added to your timetable.
+                  To optimize your routine, please provide your sleep schedule. This will be added to your timetable.
                 </p>
                 
-                <form onSubmit={(e) => {
-                  e.preventDefault();
-                  const wakeUpTime = (e.target as any).wakeUpTime.value;
-                  const sleepTime = (e.target as any).sleepTime.value;
-                  saveSleepSchedule(wakeUpTime, sleepTime);
-                }}>
-                  <div className="grid grid-cols-2 gap-4 mb-6">
-                    <div>
-                      <label className="block text-slate-300 text-sm font-medium mb-2">
-                        Wake Up Time
-                      </label>
-                      <input
-                        type="time"
-                        name="wakeUpTime"
-                        defaultValue="07:00"
-                        className="w-full bg-slate-900/70 border border-slate-700 rounded-md py-2.5 px-4 text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
-                        required
-                      />
-                    </div>
-                    
-                    <div>
-                      <label className="block text-slate-300 text-sm font-medium mb-2">
-                        Sleep Time
-                      </label>
-                      <input
-                        type="time"
-                        name="sleepTime"
-                        defaultValue="23:00"
-                        className="w-full bg-slate-900/70 border border-slate-700 rounded-md py-2.5 px-4 text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
-                        required
-                      />
-                    </div>
-                  </div>
-                  
-                  <div className="flex justify-end">
+                <div className="mb-6">
+                  <div className="flex gap-4 mb-6">
                     <button
-                      type="submit"
-                      className="px-4 py-2.5 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+                      type="button"
+                      onClick={() => setIsFlexibleSleepSchedule(false)}
+                      className={`px-4 py-2.5 rounded-md flex-1 ${
+                        !isFlexibleSleepSchedule 
+                          ? 'bg-blue-600 text-white' 
+                          : 'bg-slate-700 text-slate-300'
+                      }`}
                     >
-                      Save Sleep Schedule
+                      Regular Sleep Schedule
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setIsFlexibleSleepSchedule(true)}
+                      className={`px-4 py-2.5 rounded-md flex-1 ${
+                        isFlexibleSleepSchedule 
+                          ? 'bg-blue-600 text-white' 
+                          : 'bg-slate-700 text-slate-300'
+                      }`}
+                    >
+                      Flexible Sleep Schedule
                     </button>
                   </div>
-                </form>
+                  
+                  {!isFlexibleSleepSchedule ? (
+                    // Regular Sleep Schedule Form
+                    <form onSubmit={(e) => {
+                      e.preventDefault();
+                      const wakeUpTime = (e.target as any).wakeUpTime.value;
+                      const sleepTime = (e.target as any).sleepTime.value;
+                      const reflectionTime = parseInt((e.target as any).reflectionTime.value);
+                      setMorningReflectionTime(reflectionTime);
+                      saveSleepSchedule(wakeUpTime, sleepTime, false);
+                    }}>
+                      <div className="mb-6">
+                        <div className="grid grid-cols-2 gap-4 mb-4">
+                          <div>
+                            <label className="block text-slate-300 text-sm font-medium mb-2">
+                              Wake Up Time
+                            </label>
+                            <input
+                              type="time"
+                              name="wakeUpTime"
+                              defaultValue="07:00"
+                              className="w-full bg-slate-900/70 border border-slate-700 rounded-md py-2.5 px-4 text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                              required
+                            />
+                          </div>
+                          
+                          <div>
+                            <label className="block text-slate-300 text-sm font-medium mb-2">
+                              Sleep Time
+                            </label>
+                            <input
+                              type="time"
+                              name="sleepTime"
+                              defaultValue="23:00"
+                              className="w-full bg-slate-900/70 border border-slate-700 rounded-md py-2.5 px-4 text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                              required
+                            />
+                          </div>
+                        </div>
+                        
+                        <div>
+                          <label className="block text-slate-300 text-sm font-medium mb-2">
+                            When would you like to do Morning Reflection after waking up?
+                          </label>
+                          <select
+                            name="reflectionTime"
+                            defaultValue="30"
+                            className="w-full bg-slate-900/70 border border-slate-700 rounded-md py-2.5 px-4 text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                          >
+                            <option value="15">15 minutes after waking up</option>
+                            <option value="30">30 minutes after waking up</option>
+                            <option value="45">45 minutes after waking up</option>
+                            <option value="60">1 hour after waking up</option>
+                            <option value="90">1.5 hours after waking up</option>
+                          </select>
+                        </div>
+                      </div>
+                      
+                      <div className="flex justify-end">
+                        <button
+                          type="button"
+                          onClick={() => setIsSleepPromptOpen(false)}
+                          className="px-4 py-2.5 mr-2 border border-slate-600 text-slate-300 rounded-md hover:bg-slate-700"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="submit"
+                          className="px-4 py-2.5 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+                        >
+                          Save Sleep Schedule
+                        </button>
+                      </div>
+                    </form>
+                  ) : (
+                    // Flexible Sleep Schedule Form
+                    <form onSubmit={(e) => {
+                      e.preventDefault();
+                      
+                      const flexibleWakeUpTimes: Record<string, string> = {};
+                      const flexibleSleepTimes: Record<string, string> = {};
+                      
+                      daysOfWeek.forEach(day => {
+                        flexibleWakeUpTimes[day] = (e.target as any)[`wakeUpTime_${day}`].value;
+                        flexibleSleepTimes[day] = (e.target as any)[`sleepTime_${day}`].value;
+                      });
+                      
+                      const reflectionTime = parseInt((e.target as any).reflectionTime.value);
+                      setMorningReflectionTime(reflectionTime);
+                      
+                      saveSleepSchedule(flexibleWakeUpTimes, flexibleSleepTimes, true);
+                    }}>
+                      <div className="max-h-[400px] overflow-y-auto pr-2">
+                        <table className="w-full mb-4">
+                          <thead>
+                            <tr>
+                              <th className="py-2 text-left text-slate-300">Day</th>
+                              <th className="py-2 text-left text-slate-300">Wake Up Time</th>
+                              <th className="py-2 text-left text-slate-300">Sleep Time</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-700/50">
+                            {daysOfWeek.map(day => (
+                              <tr key={day}>
+                                <td className="py-3 text-white">{day}</td>
+                                <td className="py-3">
+                                  <input
+                                    type="time"
+                                    name={`wakeUpTime_${day}`}
+                                    defaultValue="07:00"
+                                    className="w-full bg-slate-900/70 border border-slate-700 rounded-md py-2 px-3 text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                    required
+                                  />
+                                </td>
+                                <td className="py-3">
+                                  <input
+                                    type="time"
+                                    name={`sleepTime_${day}`}
+                                    defaultValue="23:00"
+                                    className="w-full bg-slate-900/70 border border-slate-700 rounded-md py-2 px-3 text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                    required
+                                  />
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                        
+                        <div className="mb-4">
+                          <label className="block text-slate-300 text-sm font-medium mb-2">
+                            When would you like to do Morning Reflection after waking up?
+                          </label>
+                          <select
+                            name="reflectionTime"
+                            defaultValue="30"
+                            className="w-full bg-slate-900/70 border border-slate-700 rounded-md py-2.5 px-4 text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                          >
+                            <option value="15">15 minutes after waking up</option>
+                            <option value="30">30 minutes after waking up</option>
+                            <option value="45">45 minutes after waking up</option>
+                            <option value="60">1 hour after waking up</option>
+                            <option value="90">1.5 hours after waking up</option>
+                          </select>
+                        </div>
+                      </div>
+                      
+                      <div className="flex justify-end mt-4">
+                        <button
+                          type="button"
+                          onClick={() => setIsSleepPromptOpen(false)}
+                          className="px-4 py-2.5 mr-2 border border-slate-600 text-slate-300 rounded-md hover:bg-slate-700"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="submit"
+                          className="px-4 py-2.5 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+                        >
+                          Save Flexible Sleep Schedule
+                        </button>
+                      </div>
+                    </form>
+                  )}
+                </div>
               </div>
             </div>
           )}
@@ -1373,6 +1777,18 @@ export default function WeeklyTimetable() {
             </div>
           )}
         </div>
+      </div>
+
+      {/* Add Change Sleep Schedule button in controls */}
+      <div className="fixed bottom-6 right-6">
+        <button 
+          onClick={() => setIsSleepPromptOpen(true)}
+          className="bg-blue-600 hover:bg-blue-700 text-white rounded-full p-3 shadow-lg flex items-center gap-2"
+          title="Change Sleep Schedule"
+        >
+          <Moon className="h-5 w-5" />
+          <span className="mr-1">Change Sleep Schedule</span>
+        </button>
       </div>
     </DndProvider>
   );
