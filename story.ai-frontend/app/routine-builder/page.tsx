@@ -21,6 +21,7 @@ interface Activity {
   userId: string;
   createdAt: any;
   isAutoScheduled?: boolean;
+  isSleepActivity?: boolean; // Added to identify sleep activities
 }
 
 // Category color mapping
@@ -275,21 +276,18 @@ export default function WeeklyTimetable() {
         setActivities(fetchedActivities);
         setFilteredActivities(fetchedActivities);
         
-        // Fetch sleep schedule
-        const sleepScheduleQuery = query(
-          collection(db, "sleepSchedule"),
-          where("userId", "==", currentUser.uid)
-        );
+        // Extract sleep schedule from activities
+        const sleepActivities = fetchedActivities.filter(a => a.isSleepActivity && a.category === 'Sleep');
         
-        const sleepSnapshot = await getDocs(sleepScheduleQuery);
-        if (!sleepSnapshot.empty) {
-          const sleepData = sleepSnapshot.docs[0].data();
+        if (sleepActivities.length > 0) {
+          // Use the first sleep activity to determine sleep schedule
+          const sleepActivity = sleepActivities[0];
           setSleepSchedule({
-            wakeUpTime: sleepData.wakeUpTime,
-            sleepTime: sleepData.sleepTime
+            sleepTime: sleepActivity.startTime,
+            wakeUpTime: sleepActivity.endTime
           });
         } else {
-          // If no sleep schedule is found, prompt user to set one
+          // If no sleep activities are found, prompt user to set sleep schedule
           setIsSleepPromptOpen(true);
         }
       } catch (error) {
@@ -519,35 +517,52 @@ export default function WeeklyTimetable() {
     }
   };
 
-  // Save sleep schedule
+  // Save sleep schedule - Updated to create activities in the timetable collection
   const saveSleepSchedule = async (wakeUpTime: string, sleepTime: string) => {
     if (!currentUser) return;
     
     try {
-      // Check if a sleep schedule already exists
-      const sleepQuery = query(
-        collection(db, "sleepSchedule"),
-        where("userId", "==", currentUser.uid)
-      );
+      // First check if sleep activities already exist
+      const existingSleepActivities = activities.filter(a => a.isSleepActivity && a.category === 'Sleep');
       
-      const sleepSnapshot = await getDocs(sleepQuery);
+      if (existingSleepActivities.length > 0) {
+        // Delete existing sleep activities
+        for (const activity of existingSleepActivities) {
+          await deleteDoc(doc(db, "timetable", activity.id));
+        }
+        
+        // Remove from local state
+        setActivities(prev => prev.filter(a => !a.isSleepActivity));
+      }
       
-      if (!sleepSnapshot.empty) {
-        // Update existing sleep schedule
-        const sleepDoc = sleepSnapshot.docs[0];
-        await updateDoc(doc(db, "sleepSchedule", sleepDoc.id), {
-          wakeUpTime,
-          sleepTime,
-          updatedAt: serverTimestamp()
-        });
-      } else {
-        // Create new sleep schedule
-        await addDoc(collection(db, "sleepSchedule"), {
+      // Create sleep activity for each day of the week
+      const sleepStartMinutes = convertTimeToMinutes(sleepTime);
+      const wakeUpMinutes = convertTimeToMinutes(wakeUpTime);
+      const isSleepSpanningDays = sleepStartMinutes > wakeUpMinutes;
+      
+      // Create sleep activities for all days of the week
+      for (const day of daysOfWeek) {
+        // For each day, create a sleep activity
+        const nextDay = daysOfWeek[(daysOfWeek.indexOf(day) + 1) % 7];
+        
+        const sleepActivity = {
+          title: `Sleep (${formatTime(sleepTime)} - ${formatTime(wakeUpTime)})`,
+          description: 'Regular sleep schedule',
+          category: 'Sleep' as const,
+          day: isSleepSpanningDays ? [day, nextDay] : day, // If sleep spans across days, include both days
+          startTime: sleepTime,
+          endTime: wakeUpTime,
+          completed: false,
           userId: currentUser.uid,
-          wakeUpTime,
-          sleepTime,
+          isSleepActivity: true,
           createdAt: serverTimestamp()
-        });
+        };
+        
+        // Add to Firestore
+        const docRef = await addDoc(collection(db, "timetable"), sleepActivity);
+        
+        // Add to local state
+        setActivities(prev => [...prev, { ...sleepActivity, id: docRef.id }]);
       }
       
       setSleepSchedule({ wakeUpTime, sleepTime });
@@ -664,7 +679,23 @@ export default function WeeklyTimetable() {
       const activityStartMinutes = convertTimeToMinutes(activity.startTime);
       const activityEndMinutes = convertTimeToMinutes(activity.endTime);
       
-      // Check if the activity overlaps with the time block
+      // Handle activities that span across midnight
+      if (activity.isSleepActivity && activityStartMinutes > activityEndMinutes) {
+        // For the first day of sleep activity
+        if (day === activityDays[0]) {
+          // Show if block starts after or at sleep start time
+          return blockStartMinutes >= activityStartMinutes || 
+                 (blockStartMinutes < activityStartMinutes && blockEndMinutes > activityStartMinutes);
+        } 
+        // For the second day (waking up day)
+        else if (activityDays.length > 1 && day === activityDays[1]) {
+          // Show if block ends before or at wake up time
+          return blockEndMinutes <= activityEndMinutes || 
+                 (blockStartMinutes < activityEndMinutes && blockEndMinutes > activityEndMinutes);
+        }
+      }
+      
+      // Regular check for activities within the time block
       return (
         // Activity starts during the block
         (activityStartMinutes >= blockStartMinutes && activityStartMinutes < blockEndMinutes) ||
@@ -981,7 +1012,7 @@ export default function WeeklyTimetable() {
               <div className="bg-slate-800 border border-slate-700 rounded-xl p-6 w-full max-w-md animate-fadeIn">
                 <h2 className="text-xl font-bold text-white mb-2">Set Your Sleep Schedule</h2>
                 <p className="text-slate-400 mb-5">
-                  To optimize your routine and auto-schedule certain activities, please provide your sleep schedule.
+                  To optimize your routine, please provide your regular sleep schedule. This will be added to your timetable.
                 </p>
                 
                 <form onSubmit={(e) => {
