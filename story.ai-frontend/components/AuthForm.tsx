@@ -66,32 +66,27 @@ export default function AuthForm({ type }: { type: "signup" | "signin" }) {
 
     try {
       if (type === "signup") {
-        // Password validation
         const passwordRegex = /^(?=.*[A-Za-z])(?=.*\d)(?=.*[@$!%*#?&])[A-Za-z\d@$!%*#?&]{8,}$/;
         if (!passwordRegex.test(formData.password)) {
           throw new Error("Password must be at least 8 characters with a letter, number, and special character");
         }
 
-        // Check email existence
         const signInMethods = await fetchSignInMethodsForEmail(auth, formData.email);
         if (signInMethods.length > 0) {
           throw new Error("This email is already registered. Please sign in instead.");
         }
 
-        // Check username uniqueness
         const isUsernameUnique = await checkUsernameUnique(formData.username);
         if (!isUsernameUnique) {
           throw new Error("Username is already taken. Please choose another.");
         }
 
-        // Create user
         const userCredential = await createUserWithEmailAndPassword(
           auth,
           formData.email,
           formData.password
         );
 
-        // Store user data
         await Promise.all([
           setDoc(doc(db, "users", userCredential.user.uid), {
             username: formData.username.toLowerCase(),
@@ -109,7 +104,6 @@ export default function AuthForm({ type }: { type: "signup" | "signin" }) {
         setSuccess("Account created successfully! Redirecting...");
         setTimeout(() => router.push("/self-assessment"), 2000);
       } else {
-        // Handle sign in with email or username
         let email = formData.email;
         if (!formData.email.includes("@")) {
           const usernameDoc = await getDoc(doc(db, "usernames", formData.email.toLowerCase()));
@@ -143,7 +137,6 @@ export default function AuthForm({ type }: { type: "signup" | "signin" }) {
       const result = await signInWithPopup(auth, provider);
       const user = result.user;
 
-      // Check if email already exists with different provider
       const signInMethods = await fetchSignInMethodsForEmail(auth, user.email!);
       if (signInMethods.length > 0 && !signInMethods.includes("google.com")) {
         throw new Error("This email is already registered with a different provider");
@@ -152,7 +145,6 @@ export default function AuthForm({ type }: { type: "signup" | "signin" }) {
       const userDoc = await getDoc(doc(db, "users", user.uid));
       
       if (!userDoc.exists()) {
-        // Generate unique username
         let baseUsername = user.displayName?.replace(/\s+/g, "").toLowerCase() || 
                           user.email?.split("@")[0].replace(/[^a-z0-9]/g, "") || 
                           "user";
@@ -166,7 +158,6 @@ export default function AuthForm({ type }: { type: "signup" | "signin" }) {
           suffix++;
         }
 
-        // Store user data
         await Promise.all([
           setDoc(doc(db, "users", user.uid), {
             username: username,

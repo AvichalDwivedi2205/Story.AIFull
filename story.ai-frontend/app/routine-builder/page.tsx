@@ -21,10 +21,9 @@ interface Activity {
   userId: string;
   createdAt: any;
   isAutoScheduled?: boolean;
-  isSleepActivity?: boolean; // Added to identify sleep activities
+  isSleepActivity?: boolean;
 }
 
-// Category color mapping
 const categoryColors: Record<string, string> = {
   Journal: 'bg-indigo-900/20 border-indigo-700/30',
   Exercise: 'bg-emerald-900/20 border-emerald-700/30',
@@ -55,10 +54,8 @@ const categoryIcons: Record<string, React.ReactNode> = {
   Rest: <Coffee className="h-4 w-4 mr-1" />,
 };
 
-// Days of the week
 const daysOfWeek = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
-// Predefined exercises
 const predefinedExercises = [
   {
     title: 'Morning Reflection',
@@ -92,14 +89,11 @@ const predefinedExercises = [
   }
 ];
 
-// Time slots for the timetable (all 24 hours with 3-hour intervals)
 const timeSlots = Array.from({ length: 9 }, (_, i) => {
-  const hour = i * 3; // 0, 3, 6, 9, 12, 15, 18, 21
+  const hour = i * 3;
   return `${hour < 10 ? '0' + hour : hour}:00`;
 });
 
-// Activity Item component for drag & drop functionality
-// Define interface for drag item
 interface ActivityDragItem {
   index: number;
 }
@@ -151,7 +145,6 @@ const ActivityItem = ({
   
   drag(drop(ref));
   
-  // Use the same formatting logic as in the main component
   function formatTime(timeStr: string): string {
     const [hours, minutes] = timeStr.split(':');
     const hour = parseInt(hours);
@@ -165,7 +158,6 @@ const ActivityItem = ({
     } else {
       return `${hour}:${minutes || '00'} AM`;
     }
-  // Function is now passed as a prop
     throw new Error('Function not implemented.');
   }
 
@@ -255,27 +247,24 @@ export default function WeeklyTimetable() {
   const [sleepSchedule, setSleepSchedule] = useState<{wakeUpTime: string | Record<string, string>, sleepTime: string | Record<string, string>, isFlexible: boolean} | null>(null);
   const [isSleepPromptOpen, setIsSleepPromptOpen] = useState(false);
   const [isFlexibleSleepSchedule, setIsFlexibleSleepSchedule] = useState(false);
-  const [morningReflectionTime, setMorningReflectionTime] = useState(30); // Default 30 minutes after wakeup
+  const [morningReflectionTime, setMorningReflectionTime] = useState(30);
   const [selectedDays, setSelectedDays] = useState<string[]>([]);
   
   const formRef = useRef<HTMLDivElement>(null);
   const { currentUser, isAuthenticated, loading } = useAuth();
   const router = useRouter();
 
-  // Redirect if not authenticated
   useEffect(() => {
     if (!loading && !isAuthenticated) {
       router.push('/login');
     }
   }, [isAuthenticated, loading, router]);
 
-  // Fetch activities and sleep schedule from Firestore
   useEffect(() => {
     const fetchData = async () => {
       if (!currentUser) return;
 
       try {
-        // Fetch activities
         const activitiesQuery = query(
           collection(db, "timetable"), 
           where("userId", "==", currentUser.uid)

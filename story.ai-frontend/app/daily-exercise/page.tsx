@@ -15,7 +15,6 @@ export default function DailyExercise() {
     'relaxation-technique': 'pending',
   });
 
-  // Sample exercises data
   const exercises = [
     {
       id: 'morning-reflection',
@@ -68,7 +67,6 @@ export default function DailyExercise() {
     setExpandedExercise(null);
   };
 
-  // Count completed exercises
   const completedCount = Object.values(exerciseStatus).filter(status => status === 'completed').length;
 
   return (

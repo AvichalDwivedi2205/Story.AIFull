@@ -1,4 +1,3 @@
-// pages/AIInsights.tsx
 "use client"
 import React, { useState } from 'react';
 import { TrendingUp, TrendingDown, ChevronDown, ChevronUp, Sliders } from 'lucide-react';
@@ -8,7 +7,6 @@ export default function AIInsights() {
   const [activeTab, setActiveTab] = useState('AI Insights');
   const [expandedSections, setExpandedSections] = useState<string[]>([]);
 
-  // Expanded sample data for key metrics from multiple model analyses
   const keyMetrics = [
     { name: "Stress Level", value: "PSS Scores", increasing: true },
     { name: "Anxiety Level", value: "75% of entries indicate high anxiety", increasing: true },
@@ -17,7 +15,6 @@ export default function AIInsights() {
     { name: "Cognitive Distortions", value: "Reduced by 35% compared to last month", increasing: false },
   ];
 
-  // Expanded sample insights from different AI models
   const insights = [
     {
       id: "anxiety-stress",
@@ -52,7 +49,6 @@ export default function AIInsights() {
     // }
   ];
 
-  // Sample recommendations incorporating multi-model analysis
   const recommendations = [
     "Engage in a 5-minute breathing exercise during work breaks.",
     "Schedule a daily mindfulness session to stabilize mood variability.",
@@ -71,9 +67,7 @@ export default function AIInsights() {
     <div className="flex min-h-screen bg-slate-900 text-slate-300">
       <Navbar activeTab={activeTab} setActiveTab={setActiveTab} />
 
-      {/* Main Content Container */}
       <div className="flex-grow p-6 bg-slate-800/50 rounded-lg border border-slate-700 ml-6 mb-6">
-        {/* Header Section */}
         <div className="flex justify-between items-center mb-8">
           <div>
             <h1 className="text-white font-bold text-3xl">Your Mental Health Trends</h1>
@@ -89,7 +83,6 @@ export default function AIInsights() {
           </div>
         </div>
 
-        {/* Key Metrics Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 mb-10">
           {keyMetrics.map((metric, index) => (
             <div key={index} className="bg-slate-800/70 p-5 rounded-xl border border-slate-700 hover:border-blue-500/40 transition-colors">
@@ -110,7 +103,6 @@ export default function AIInsights() {
           ))}
         </div>
 
-        {/* Detailed Analysis Section */}
         <div className="space-y-6 mb-10">
           <h2 className="text-2xl font-bold text-white mb-6">Detailed Analysis</h2>
           
@@ -140,7 +132,6 @@ export default function AIInsights() {
           ))}
         </div>
 
-        {/* Recommendations Section */}
         <div className="bg-gradient-to-br from-blue-600/30 to-blue-500/20 p-6 rounded-xl border border-blue-500/30">
           <h2 className="text-2xl font-bold text-white mb-5">Personalized Recommendations</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">

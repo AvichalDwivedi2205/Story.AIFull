@@ -25,14 +25,12 @@ export default function TherapyChatbot() {
   const chatEndRef = useRef<HTMLDivElement>(null);
   const [showSuggestions, setShowSuggestions] = useState(true);
 
-  // Suggested conversation starters
   const suggestedStarters = [
     "What's on your mind today?",
     "Would you like help reframing a negative thought?",
     "How did your day go?"
   ];
 
-  // Quick reply options
   const quickReplies = [
     { label: "I need guidance", icon: "🧠" },
     { label: "I want to journal", icon: "📖" },
@@ -46,11 +44,9 @@ export default function TherapyChatbot() {
   const simulateAiResponse = (userMessage: string) => {
     setIsAiTyping(true);
     
-    // Simple mood detection (very basic example)
     const containsNegativeWords = /sad|anxious|stressed|depressed|worried|upset/i.test(userMessage);
     const containsReflectiveWords = /think|reflect|wonder|consider|understand|learn/i.test(userMessage);
     
-    // Time delay to simulate AI thinking
     setTimeout(() => {
       let response = '';
       
@@ -127,7 +123,6 @@ export default function TherapyChatbot() {
 
   return (
     <div className="flex-1 flex flex-col h-screen bg-slate-900">
-      {/* Chat Header */}
       <div className="p-4 border-b border-slate-700 bg-slate-800/70 backdrop-blur-sm">
         <div className="flex justify-between items-center">
           <div>
@@ -154,7 +149,6 @@ export default function TherapyChatbot() {
         </div>
       </div>
       
-      {/* Chat Messages */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {messages.map((message) => (
           <div 
@@ -188,7 +182,6 @@ export default function TherapyChatbot() {
           </div>
         )}
         
-        {/* AI Suggested Starters (if conversation is new) */}
         {showSuggestions && messages.length < 3 && (
           <div className="my-4">
             <p className="text-slate-400 text-sm mb-2">Not sure where to start? Try one of these:</p>
@@ -206,7 +199,6 @@ export default function TherapyChatbot() {
           </div>
         )}
         
-        {/* Quick Reply Buttons */}
         {!isAiTyping && messages.length > 1 && messages.length < 5 && (
           <div className="flex flex-wrap gap-2 my-4">
             {quickReplies.map((reply, idx) => (
@@ -224,7 +216,6 @@ export default function TherapyChatbot() {
         <div ref={chatEndRef} />
       </div>
       
-      {/* Message Input */}
       <div className="p-4 border-t border-slate-700 bg-slate-800/50 backdrop-blur-sm">
         <div className="flex items-center">
           <button className="p-2 rounded-full hover:bg-slate-700/50 text-slate-300 mr-2">
