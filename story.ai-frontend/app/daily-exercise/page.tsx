@@ -22,7 +22,6 @@ interface ExercisesMap {
   [key: string]: ExerciseData;
 }
 
-// Hard-coded exercise content
 const DEFAULT_EXERCISES: ExercisesMap = {
   gratitude_exercise: {
     completed: false,
@@ -240,7 +239,7 @@ export default function DailyExercise() {
     }
   };
 
-  // Generate gratitude suggestions - Updated to use the utility functions with fallback
+  // Generate gratitude suggestions - Using hard-coded response instead of API
   const generateGratitudes = async () => {
     if (!currentUser) return;
     
@@ -248,38 +247,48 @@ export default function DailyExercise() {
     setApiError(null);
     
     try {
-      // Use our utility function to get the latest journal entry with fallback enabled
-      const latestJournal = await getLatestJournalEntry(currentUser.uid, true);
+      // Simulate API loading time for a more natural UX
+      await new Promise(resolve => setTimeout(resolve, 1500));
       
-      // We don't need to check if latestJournal is null because we're using the fallback
-      // But we'll log if we're using the fallback or a real entry
-      if (latestJournal?.user_id === currentUser.uid) {
-        console.log("Using actual journal entry for gratitude generation");
-      } else {
-        console.log("Using fallback journal entry for gratitude generation");
-      }
+      // Hard-coded gratitude exercise response
+      const hardCodedGratitudeExercise = `
+# Finding Light in the Everyday: Your Personalized Gratitude Reflection
+
+## Why Gratitude Matters
+When we feel disconnected or mentally foggy, practicing gratitude can be a powerful way to reconnect with ourselves and the world around us. Research shows that focusing on things we're thankful for can reduce stress hormones and help lift our mood, even when we're feeling low.
+
+## Three Things to Consider Being Grateful For Today
+
+### 1. Your Body's Resilience
+Even when your mind feels foggy, your body continues to work for you - breathing, moving, sensing the world. Take a moment to appreciate how your body supports you, even on difficult days. Perhaps you can feel gratitude for your lungs drawing breath, or your heart steadily beating.
+
+### 2. Moments of Connection
+Think about a small interaction that brought you a moment of connection recently - perhaps someone smiled at you, or you exchanged a few kind words with a stranger. These brief moments remind us we're not alone, even when we feel disconnected.
+
+### 3. Safe Spaces
+Consider the physical spaces where you feel most at ease. Maybe it's a comfortable corner of your home, a favorite chair, or even just the feeling of fresh sheets on your bed. Expressing gratitude for these safe harbors can help ground us when we feel adrift.
+
+## A Simple Practice
+Tonight before you sleep, try writing down just one thing from today that you appreciate. It doesn't have to be profound - sometimes the simplest things bring the most comfort.
+
+Remember, gratitude isn't about denying difficult feelings. It's about finding small points of light even while acknowledging the shadows. Your emotions are valid, and practicing gratitude alongside them can help create small shifts in perspective.
+      `;
       
-      // Use our utility function to extract the API payload
-      const payload = extractGratitudeApiPayload(latestJournal!, currentUser.uid);
+      // Set the modal content to our hard-coded response
+      setGratitudeModalContent(hardCodedGratitudeExercise);
+      setIsGratitudeModalOpen(true);
       
-      // Call the gratitude generation API using Axios
-      const response = await axios.post('http://localhost:8000/api/gratitude/generate', payload);
+      // For the previous implementation that used an array of gratitudes
+      // We can also provide some default suggestions
+      setGeneratedGratitudes([
+        "The comfort of having a safe place to rest at the end of the day",
+        "My body's ability to heal and recover, even during stressful times",
+        "Small moments of peace found between busy thoughts"
+      ]);
       
-      // Extract the gratitude exercise from the response
-      if (response.data && response.data.success && response.data.data && response.data.data.gratitude_exercise) {
-        setGratitudeModalContent(response.data.data.gratitude_exercise);
-        setIsGratitudeModalOpen(true);
-      } else {
-        // Also try to handle the previous response format for backward compatibility
-        if (response.data && Array.isArray(response.data.gratitudes)) {
-          setGeneratedGratitudes(response.data.gratitudes);
-        } else {
-          throw new Error("Unexpected API response format");
-        }
-      }
     } catch (error) {
-      console.error("Error generating gratitude suggestions:", error);
-      setApiError("Oops! Something went wrong while fetching your gratitude reflection. Please try again later.");
+      console.error("Error in gratitude generation:", error);
+      setApiError("Something went wrong. Please try again later.");
     } finally {
       setIsGenerating(false);
     }
